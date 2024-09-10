@@ -1,0 +1,396 @@
+-- A * B -> A
+
+-- (a,b) -> a
+-- \x -> x.1
+
+-- a -> Either a b
+-- Left
+
+-- Either a a -> a
+-- \x -> case x of
+--   Left a -> a
+--   Right a -> a
+
+-- (a,b) -> Either a b
+-- \x -> Left x.1
+-- \x -> Right x.2
+
+-- Either a b -> (a,b)
+
+-- Not a === (a -> Empty)
+
+-- Either a (Not a)
+
+
+
+
+
+-- Bool -> Int
+-- \Pi (b : Bool) -> if b then Int else String
+-- \Pi (x : Int) -> if x == 0 then Int else if x == 1 then Bool else ...
+
+
+-- \Sigma (b : Bool) (if b then Int else String)
+-- (True,0)
+-- (True,100)
+-- (False,"123")
+-- invalid: (True,"123"), (False,23)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- \Pi (b : Bool) -> if b String Int
+-- \b -> if b then "123" else 123
+
+-- \Sigma (b : Bool) (if b String Int)
+-- (True, "123")
+-- (False, 123)
+-- (True, 123) -- not valid
+
+-- 1. Процесс установки Arend описан на этой странице https://arend-lang.github.io/download
+
+-- 2. Примеры определений функций. В комментариях указаны аналогичные определения на хаскелле для сравнения.
+
+\func f => 0 -- константа.
+{- Haskell:
+   f = 0
+-}
+
+\func g : Nat
+   => 0 -- константа с явно указанным типом.
+{- Haskell:
+   g :: Nat
+   g = 0
+-}
+
+
+-- !@#$%^&*
+
+\func id (x : Nat) => x -- тождественная функция на типе натуральных чисел.
+\func id' (x : Nat) : Nat => x  -- тождественная функция на типе натуральных чисел с явно указанным типом результата.
+\func +!id@#$%$ (x : Nat) => x -- в идентификаторах могут встречаться произвольные символы.
+\func id'' (x:Nat -- x:Nat -- валидный идентификатор.
+   :
+                    -- пробельные символы игнорируются.
+   Nat) => x:Nat    -- x:Nat -- это тоже валидный идентификатор.
+{- Haskell:
+   id :: Nat -> Nat
+   id x = x
+-}
+
+-- \func id''' x => x -- типы аргументов всегда обязательно указывать. Это определение некорректно в отличии от хаскелла.
+{- Haskell:
+   id''' x = x
+-}
+
+\func foo (x : Nat) (y : Int) (z : Nat) => x -- функция от трех аргументов, возвращающая первый.
+{- Haskell:
+   foo :: Nat -> Int -> Nat -> Nat
+   foo x y z = x
+-}
+
+-- bar :: Nat -> Nat -> Nat
+-- bar x y = x
+\func bar' (x : Nat) (_ : Nat) => x -- функция от двух аргументов, возвращающая первый.
+\func bar (x _ : Nat) => x -- если типы подряд идущих аргументов совпадают, их можно объекдинить. Если аргумент не используется, это можно явно обозначить, используя _ вместо имени.
+
+\func bar'' => \lam (x : Nat) (y : Nat) => x -- вместо параметров функции можно использовать лямбды. Необходимо явно указывать тип параметров лямбды (в данном случае), так как его невозможно вывести в языке с зависимыми типами.
+\func bar''' => \lam (x y : Nat) => x -- можно сокращать как и раньше.
+\func bar'''' : Nat -> Nat -> Nat => \lam x y => x -- если явно указать тип функции, то типы параметров можно не указывать, так как они могут быть выведены.
+{- Haskell:
+   bar'' :: Nat -> Nat -> Nat
+   bar'' = \x y -> x
+-}
+
+-- 3. Инфиксные операторы.
+
+\func $ (x y : Nat) => x -- в отличии от хаскелла $ не является инфиксным оператором.
+\func test => $ 3 7 -- test возвращает 3.
+{- Haskell:
+   ($) x y = x
+   test = ($) 3 7
+-}
+
+\func \infixl 6 $$ (x y : Nat) => x -- чтобы сделать идентификатор инфиксным, нужно явно указать одну из аннотаций \infix, \infixl, \infixr. В отличии от хаскелла аннотация указывается непосредственно перед объявляемым идентификатором.
+\func test' => 3 $$ 7 -- test' возвращает 3.
+{- Haskell:
+   infixl 6 $$
+   ($$) x y = x
+   test' = 3 $$ 7
+-}
+
+\func ff (x y : Nat) => x
+\func ff_test => 0 `ff` 1 -- любую функцию можно использовать в инфиксной форму, окружив ее в ` `.
+{- Haskell:
+   ff x y = x
+   ff_test = 3 `ff` 7
+-}
+
+\func \fixl 6 ff' (x y : Nat) => x -- аннотации \fix, \fixl, \fixr не делают идентификатор инфиксным, но влияют на его приоритет, когда он используется с ` `.
+\func \fixr 6 ff'' (x y : Nat) => x
+\func ff'_test => 0 `ff'` 1 `ff'` 2 -- равно (0 `ff'` 1) `ff'` 2
+\func ff''_test => 0 `ff''` 1 `ff''` 2 -- равно 0 `ff''` (1 `ff''` 2)
+{- Haskell:
+   infixl 6 `ff'`
+   ff' x y = x
+   ff'_test = 0 `ff'` 1 `ff'` 2
+   infixr 6 `ff''`
+   ff'' x y = x
+   ff''_test = 0 `ff''` 1 `ff''` 2
+-}
+
+\func \infix 5 %% (x y : Nat) => x
+\func %%-test => %% 3 7 -- любой инфиксный оператор можно использовать в префиксной форме. Его не обязательно окружать в ( ).
+{- Haskell:
+   infix 5 %%
+   (%%) x y = x
+   pp_test = (%%) 3 7
+-}
+
+\func %%-test' => 3 %% -- можно использовать левое сечение.
+{- Haskell:
+   pp_test' = (3 %%)
+-}
+
+\func %%-test'' => %% 7 -- т.к. %% 7 -- это корректный синтаксис, то это выражение эквивалентно %% 7, то есть правое сечение использовать нельзя.
+{- Haskell:
+   pp_test'' = (%%) 7
+-}
+
+\func func (x y : Nat) => x
+\func funcTest => 0 `func -- любой индетификатор можно использовать в постфиксной форме, поставив перед ним `.
+{- Haskell:
+   -- нет прямого аналога.
+   func x = x
+   funcTest => func 0
+-}
+
+\func op (x y : Nat) => x
+
+\func ex => `op 3
+{- Haskell:
+   ex = (`op` 3)
+-}
+
+-- 4. Bool, not, ||, if then else
+
+\data Bool
+   | false
+   | true
+-- имена типов данных и конструкторов могут начинаться с любой буквы в отличии от хаскелла.
+{- Haskell:
+   data Bool
+    = False
+    | True
+-}
+
+-- \data Foo | cons (Foo -> Foo)
+
+\data Empty
+
+\data Foo | cons Foo
+
+-- \func zxc : Empty => zxc
+
+{-
+\func Bool=>Empty (x : Bool) : Empty
+   | false => ...
+   | true => {?}
+-}
+
+\func Foo=>Empty (x : Foo) : Empty
+   | cons x => Foo=>Empty x
+
+{-
+-- Определения типов данных должны быть строго положительными.
+-- Это означает, что они не могут встречаться слева от -> в конструкторах.
+--
+-- Если такие типы данных разрешены, то мы можем определить "тип нетипизированных лямбда-термов" K.
+-- В нем можно закодировать все такие термы, в том числе и незавершающиеся, а такие функции запрещены (см. п. 6 ниже).
+\data K | k (K -> K)
+\func I => k (\lam x => x)
+\func Kc => k (\lam x => k (\lam _ => x))
+\func app (f a : K) : K \elim f
+  | k f' => f' a
+\func omega => k (\lam x => app x x)
+\func Omega => app omega omega
+-}
+
+\func not (x : Bool) : Bool
+   | false => true
+   | true => false
+
+{- Haskell:
+   not :: Bool -> Bool
+   not True = False
+   not False = True
+-}
+
+\func if' (x : Bool) (t e : Nat) : Nat
+   | true, t, e => t
+   | false, t, e => e
+
+\func if (x : Bool) (t e : Nat) : Nat \elim x
+   | true => t
+   | false => e
+
+{- Haskell:
+   if :: Bool -> Nat -> Nat -> Nat
+   if True t e = t
+   if False t e = e
+-}
+
+\func example (x y a b c d : Bool) : Bool \elim x, y
+   | true, false => a
+   | true, true => b
+   | false, y => \case y, a \with {
+      | true, a => c
+      | false, a => a
+   }
+{- Haskell:
+   example True False a b c d = a
+   example True True a b c d = b
+   example False y a b c d = case (y,a) of
+        (True,a) -> undefined
+        (False,a) -> undefined
+-}
+
+\func \infixr 3 && (x y : Bool) : Bool \elim x
+   | false => false
+   | true => y
+
+{- Haskell:
+   (&&) :: Bool -> Bool -> Bool
+   True && y = y
+   False && _ = False
+-}
+
+-- 5. Nat, +, *
+
+\data Nat'
+   | zero'
+   | suc' Nat'
+   -- уже определено в Prelude
+
+-- такое представление более эффективно, но не так удобно для доказательств.
+\data BinNat
+   | zero''
+   | sh+1 BinNat -- x*2+1
+   | sh+2 BinNat -- x*2+2
+
+-- эти определения эквивалентны
+\func three => suc (suc (suc zero))
+\func three' => 3
+
+-- нет ограничений на величину чисел
+\func bigNumber => 1000000000000000000000000
+
+\func \infixl 6 + (x y : Nat) : Nat \elim y
+   | 0 => x
+   | suc y => suc (x + y)
+{- Haskell:
+   (+) :: Nat -> Nat -> Nat
+   x + Zero = x
+   x + Suc y = Suc (x + y)
+-}
+
+{-
+\func \infixl 6 +' (x y : Nat) : Nat
+   => \case y \with {
+      | 0 => x
+      | suc y' => suc (x +' y')
+   }
+-}
+
+-- x +' y => \case y \with { | 0 => x | suc y => suc (x +' y) }
+--        => \case y \with { | 0 => x | suc y => suc (\case y \with { | 0 => x | suc y => suc (x +' y) }) }
+
+{-
+\func asdas (x y : Nat) : Nat
+   | 0, 0 => {?}
+   | 0, suc y => asdas 1 y
+   | suc x, 0 => asdas x 1
+   | suc x, suc y => {?}
+-}
+
+-- если n -- переменная, то n + 2 вычисляется, а 2 + n уже находится в нормальной форме.
+-- n + 2 => suc (n + 1) => suc (suc (n + 0)) => suc (suc n)
+-- 2 + n
+-- то есть важно как определен + и на каком аргументе производится паттерн матчинг.
+
+\func \infixl 7 * (x y : Nat) : Nat \elim y
+   | 0 => 0
+   | suc y => x * y + x
+
+{- Haskell:
+   (*) :: Nat -> Nat -> Nat
+   x * Zero = 0
+   x * Suc y = x * y + x
+-}
+
+-- выражения n * 2 и 2 * n не вычисляются в конструкторы
+-- n * 2 === n * suc (suc zero) => n * 1 + n => (n * 0 + n) + n => (0 + n) + n
+-- 2 * n
+-- выражения suc n * 2 и 2 * suc n вычисляются, но 2 * suc n вычисляется лучше
+-- suc n * 2 => (0 + suc n) + suc n => suc ((0 + suc n) + n)
+-- 2 * suc n => 2 * n + 2 => suc (suc (2 * n))
+
+-- 6. Termination, div
+
+-- Все функции должны завершаться, т.к. иначе мы можем доказать любое утверждение.
+-- Кроме того, алгоритм проверки типов становится неразрешимым, т.к. он должен вычислять произвольные функции, определенные в языке.
+-- \func f''' : Nat => f'''
+
+\func \infixl 6 - (x y : Nat) : Nat
+   | 0, _ => 0
+   | suc x, 0 => suc x
+   | suc x, suc y => x - y
+
+{-
+\func \infixl 6 -' (x y : Nat) : Nat
+   => x + (\case x, y \with {
+      | 0, _ => 0
+      | suc x, 0 => suc x
+      | suc x, suc y => x -' y
+   })
+-}
+
+\func \infix 4 < (x y : Nat) : Bool
+   | 0, 0 => false
+   | 0, suc y => true
+   | suc x, 0 => false
+   | suc x, suc y => x < y
+
+-- \func div2 (x y : Nat) : Nat => if (x < y) 0 (suc (div2 (x - y) y))
+{-
+ Очевидное, но не корректное определение div, так как оно не завершается на входе вида div x 0.
+ Даже если бы div завершалась, это определение не было бы корректным, так как рекурсивная функция принимаются только если она определена при помощи структурной рекурсии.
+ То есть один из аргументов в рекурсивном вызове должен быть структурно строго меньше, чем исходный аргумент, а остальные меньше либо равны.
+-}
+
+-- Часто рекурсивную функцию можно превратить в структурно рекурсивную, добавив новый параметр, который будет уменьшаться при каждом рекурсивном вызове.
+-- В начальный момент времени его можно задать любым образом так, чтобы он был больше, чем глубина рекурсии, необходимая для вычисления этой функции.
+-- Например, глубина рекурсии при вычислении div x y составляет x/y шагов, что меньше либо равно x, так что можно эту функцию определить следующим образом:
+
+\func div (x y : Nat) => aux x x y
+  \where {
+     \func aux (fuel x y : Nat) : Nat \elim fuel
+        | 0 => 0
+        | suc fuel => if (x < y) 0 (suc (aux fuel (x - y) y))
+  }
+
+-- Таким образом можно протестировать нашу функцию.
+\func divTest1 : div 100 5 = 20 => idp
+\func divTest2 : div 100 3 = 33 => idp
+\func divTest3 : div 100 1 = 100 => idp
+\func divTest4 : div 100 0 = 100 => idp

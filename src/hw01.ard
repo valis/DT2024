@@ -1,0 +1,57 @@
+-- 1. Установите arend, следуя инструкциям на странице https://arend-lang.github.io/download
+--    В IDEA можно просто импортировать данный проект.
+
+-- 2. Определите аналоги следующих функций на языке хаскелл.
+{- Haskell:
+   second :: Nat -> Nat -> Nat -> Nat
+   second _ y _ = y
+
+   apply :: (Nat -> Nat) -> Nat -> Nat
+   apply f x = f x
+
+   compose :: (Nat -> Nat) -> (Nat -> Nat) -> Nat -> Nat
+   compose f g x = f (g x)
+
+   flip :: (Nat -> Nat -> Nat) -> Nat -> Nat -> Nat
+   flip f x y = f y x
+
+   second' = flip (second 0)
+-}
+
+-- 3. Расставьте приоритеты функций f1, f2, f3, f4, f5 и f6 так, чтобы функция test проходила тайпчекинг.
+
+\import lect01 \hiding (+,*)
+
+\func f1 (x y : Nat) => x
+\func f2 : Nat => 0
+\func f3 (f : Nat -> Nat) (z : Nat) : Int => 0
+\func f4 : Nat => 0
+\func f5 => f1
+\func f6 => f4
+
+\func test => f1 f2 f3 f4 f5 f6
+
+-- 4. Определите функцию if, аналогичную следующей функции:
+{- Haskell:
+   if :: Bool -> Bool -> Bool -> Bool
+   if True t _ = t
+   if False _ e = e
+-}
+
+-- 5. Определите || через if.
+
+\func \infixr 2 || (x y : Bool) : Bool => {?}
+
+-- 6. Определите возведение в степень и факториал для натуральных чисел.
+
+\open Nat \hiding (-,div) -- Здесь лежат + и *.
+
+\func \infixr 8 ^ (x y : Nat) => {?}
+
+\func fac (x : Nat) => {?}
+
+-- 7. Определите mod и gcd.
+
+\func mod (x y : Nat) => {?}
+
+\func gcd (x y : Nat) => {?}
