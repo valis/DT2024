@@ -1,0 +1,298 @@
+\import Data.Bool
+\import Data.Or
+\import Meta
+-- 1. Полиморфизм, id, неявные аргументы
+
+-- \Type -- тип типов.
+-- id : \Pi (A : \Type) -> A -> A
+\func id (A : \Type) (a : A) => a
+{- Haskell:
+   id :: a -> a
+   id x = x
+-}
+
+\func idEx => id Nat 0
+
+\func idEx' => id Int -1
+
+-- Nat -> Nat
+-- \Pi (n : Nat) -> Nat
+-- \Pi (x : Bool) -> if x String Int
+
+\func idEx'' => id (Nat -> Nat) (id Nat)
+
+\func idEx''' => id (\Pi (A : \Type) (a : A) -> A) id
+
+\func idEx'''' => id (\Pi (A : \Type) -> A -> A) id
+
+\func idType : \Pi (A : \Type) -> A -> A => id
+{- Haskell:
+   idType :: a -> a
+   idType = id
+-}
+
+-- _ говорит тайпчекеру вывести значение самому.
+-- Если он не сможет этого сделать, он выдаст ошибку.
+-- В данном случае он выводит Nat, так как он знает, что первый параметр является типом второго, а второй имеет тип Nat.
+\func idTest => id _ 0
+
+-- Параметры в фигурных скобках являются неявными.
+\func id' {A : \Type} (a : A) => a
+
+\func id'Test => id' 0
+\func id'Test' => id' {Nat} 0 -- неявные параметры можно передавать явно, взяв аргумент в фигурные скобки.
+
+-- В данном случае лучше n не делать неявным, так как тайпчекер не сможет его вывести из типа p, так как n встречается только внутри вызова функции.
+-- Например, если мы вызовем example' pp, где pp : 8 = 3, то тайпчекер не может вывести, что n должно равняться 4.
+\func example' {n : Nat} (p : n + n = 3) => 0
+
+-- В данном случае n и m можно сделать неявнымы, так как они встречается только под \data (= определено через Path, который является \data) и конструктором (suc).
+-- \data и конструкторы являются инъективными, поэтому тайпчекер всегда может вывести n и m в таких случаях.
+-- Например, если мы вызовем example'' pp, где pp : 8 = 3, то тайпчекер понимает, что m должно равняться 3, а suc n должно равняться 8.
+-- Так как 8 = suc 7 и suc инъективен, то он понимает, что n должно равняться 7.
+\func example'' {n m : Nat} (p : suc n = m) => 0
+\func example''Test (pp : 8 = 3) => example'' pp
+
+-- 2. Списки, append
+
+\data List (A : \Type)
+  | nil
+  | cons A (List A)
+{- Haskell:
+   data List a = Nil | Cons a (List a)
+-}
+
+\func \infixl 6 ++ {A : \Type} (xs ys : List A) : List A \elim xs
+  | nil => ys
+  | cons a xs => cons a (xs ++ ys)
+
+{- Haskell:
+   (++) :: List a -> List a -> List a
+   Nil ++ ys = ys
+   cons x xs ++ ys = cons x (xs ++ ys)
+-}
+
+-- nil {A : \Type} : List A
+-- cons {A : \Type} : A -> List A -> List A
+
+\func nilTest {A : \Type} : List A => nil ++ nil
+
+-- 3. Пустой и одноэлементный типы, пары и \Sigma-типы.
+
+\open Nat
+
+-- Одноэлементный тип соответствует истинному утверждению.
+\data Unit | unit
+
+-- Доказательство, что Unit верно.
+\func Unit-proof : Unit
+  => unit
+
+-- Пустой тип соответствует ложному утверждению.
+\data Empty
+
+-- \func emptyTest : Empty => emptyTest
+
+-- Доказательство, что из Empty следует что угодно.
+\func absurd {A : \Type} (e : Empty) : A
+
+-- через () паттерн
+\func absurd' {A : \Type} (e : Empty) : A
+  | ()
+
+-- через \case
+\func absurd'' {A : \Type} (e : Empty) : A
+  => \case e
+
+\data W (A : \Type) | w A
+
+\func absurd''' {A : \Type} (e : W Empty) : A
+  | w ()
+
+-- через absurd
+\func absurd'''' {A : \Type} (e : W Empty) : A
+  | w a => absurd a
+
+-- \Sigma-тип эквивалентен очевидно определению пар.
+-- \Sigma Nat Nat === \data Pair | pair Nat Nat
+{- Haskell:
+   (Nat,Nat) === data Pair = Pair Nat Nat
+-}
+
+-- \Sigma (n : Nat) (... n ...)
+
+\func pair : \Sigma Nat Nat
+  => (0,1)
+{- Haskell:
+   pair :: (Nat,Nat)
+   pair = (0,1)
+-}
+
+-- Проекции обозначаются p.1 и p.2
+\func projSum (p : \Sigma Nat Nat) => p.1 + p.2
+{- Haskell:
+   projSum :: (Nat,Nat) -> Nat
+   projSum p = fst p + snd p
+-}
+
+\func projSum' (p : \Sigma Nat Nat) : Nat
+  | (x,y) => x + y
+
+\func projSum'' : \Sigma Nat Nat -> Nat => \lam (x,y) => x + y
+
+-- Есть зависимая версия \Sigma-типов, где типы последующих полей могут зависеть от предыдущих.
+-- Например, элементы следующего \Sigma-типа -- это пары из натурального числа n и элемента типа n = n (т.е. доказательства, что n равно n).
+-- \Sigma (n : Nat) (n = n) === \data Pair' | pair' (n : Nat) (n = n)
+
+\func pairEx1 (p : \Sigma (A : \Set) A) (q : p = (Nat,0)) => 1
+\func pairEx2 (p : \Sigma (A : \Set) A) (q : (Nat,0) = {\Sigma (A : \Set) A} p) => 1
+
+\func dependentExample => \Sigma (A : \Type) A
+\func dependentExample1 : dependentExample => (Nat,0)
+\func dependentExample2 : dependentExample => (Int,-1)
+\func dependentExample3 : dependentExample => (Nat -> Nat, id')
+
+\func dependentExample1' {- : \Sigma \Type Nat -} => (Nat,0)
+\func dependentExample2' {- : \Sigma \Type Int -} => (Int,-1)
+\func dependentExample3' {- : \Sigma \Type (Nat -> Nat) -} => (Nat -> Nat, id')
+
+-- \Sigma Nat Nat == Nat x Nat
+
+-- \Sigma_{n : Fin 10} a_n = 10 * a
+
+-- Одноэлементный тип -- частный случай \Sigma-типов.
+\func unit'' : \Sigma
+  => ()
+{- Haskell:
+   unit'' :: ()
+   unit'' = ()
+-}
+
+-- 4a. Пример утверждений и доказательств.
+
+\func AimpliesA {A : \Type} : A -> A
+  => \lam a => a
+
+\func example_ {A B C : \Type} (f : A -> B) (g : B -> C) : A -> C
+  => \lam a => g (f a)
+
+-- A & (B | C) <-> (A & B) | (A & C)
+
+\func \infix 3 <=> (A B : \Type) => \Sigma (A -> B) (B -> A)
+
+\func example__ {A B C : \Type} : (\Sigma A (Or B C)) <=> Or (\Sigma A B) (\Sigma A C)
+  => (\lam s => \case s.2 \with {
+    | inl b => inl (s.1,b)
+    | inr c => inr (s.1,c)
+  }, \lam o => \case o \with {
+    | inl s => (s.1, inl s.2)
+    | inr s => (s.1, inr s.2)
+  })
+
+-- 4b. Пример утверждений и доказательств.
+
+\func \infix 5 == (x y : Bool) : Bool
+  | true, true => true
+  | false, false => true
+  | _, _ => false
+
+-- Функция T превращает булевское значение в соответствующее ему утверждение (одноэлементный или пустой тип).
+\func T (b : Bool) : \Type
+  | false => Empty
+  | true => \Sigma
+
+\func bool-refl (x : Bool) : T (x == x)
+  | false => () -- T (false == false)
+  | true => () -- T (true == true)
+
+-- Утверждение T (not (not x) == x) соответствует утверждению, что not (not x) равно x.
+\func not-isInvolution (x : Bool) : T (not (not x) == x)
+  | false => ()
+  | true => ()
+
+-- Мы не можем сразу вернуть (), так как T (not (not x) == x) не равно Unit.
+-- \func not-isInvolution' (x : Bool) : T (not (not x) == x) => ()
+
+-- Мы не можем доказать ложное утверждение таким образом.
+-- \func not-isIdempotent (x : Bool) : T (not (not x) == not x)
+
+-- Not P === P -> Empty
+
+-- Зато мы можем доказать, что оно ложно.
+\func not-isIdempotent' (x : Bool) : T (not (not x) == not x) -> Empty
+  | false => id'
+  | true => absurd
+
+-- -> -- это независимые функции.
+-- Например, && имеет тип Bool -> Bool -> Bool.
+-- \Pi-типы обощают их.
+-- Например, bool-refl имеет тип \Pi (x : Bool) -> T (x == x).
+-- Если переменная объявленная в \Pi не используется, мы получаем обычный тип функций.
+-- Например, тип Bool -> Bool -> Bool эквивалентен типу \Pi (_ _ : Bool) -> Bool.
+
+-- Докажем, что для любого x : Bool существует y : Bool такой, что x == y.
+-- Вместо квантора существования можно использовать \Sigma-тип.
+\func lemma (x : Bool) : \Sigma (y : Bool) (T (x == y))
+  => (x, bool-refl x)
+
+-- Следующая функция доказывает довольно бессмысленное утверждение "из того, что любой x : Bool равен себе, следует, что true равен true".
+\func higherOrderFunc (f : \Pi (x : Bool) -> T (x == x))
+  => f true
+
+-- 5. Тип равенств.
+
+-- \func \infix 1 = {A : \Type} (a a' : A) : \Type => ...
+
+-- Определять равенство так, как мы это делали выше, не удобно, так как нужно делать это для каждого типа и доказывать потом различные его свойства.
+-- В Prelude объявлен тип равенства, который определен для всех типов сразу.
+-- Пока мы не будем рассматривать его определение.
+-- Всё, что нам понадобится пока, -- это доказательство рефлексивности, которое мы называем idp.
+
+-- \func idp {A : \Type} {a : A} : a = a => ...
+
+\func idpExample : 1 + 1 = 2 + 0 * 2 => idp
+
+\func idpExample' (x : Nat) : x + 1 = suc x => idp
+
+\func idpExample'' (x : Nat) : 1 + x = suc x => idp
+
+-- Доказать, что not является инволюцией можно также как и раньше.
+\func not-isInvolution_ (x : Bool) : not (not x) = x
+  | false => idp
+  | true => idp
+
+-- Доказать ложное утверждение мы всё еще не можем.
+\func not-isIdempotent_ (x : Bool) : not (not x) = not x
+  | true => {?} -- Здесь нужно доказать, что true = false, что невозможно.
+  | false => {?} -- Здесь нужно доказать, что false = true, что невозможно.
+
+\func not-isNotIdempotent (x : Bool) : not (not x) = not x -> Empty
+  => {?}
+
+-- Доказательства других двух утверждений, доказанных ранее, выглядят аналогично.
+\func lemma_ {A : \Type} (x : A) : \Sigma (y : A) (x = y)
+  => (x, idp)
+
+\func higherOrderFunc_ (f : \Pi (x : Bool) -> x = x) : true = true
+  => f true
+
+-- 6. Еще примеры утверждений и доказательств: инволютивность reverse.
+
+-- Если определить функцию reverse через вспомогательную функцию с аккумулятором, то потом будет проще доказывать ее свойства.
+\func reverse {A : \Type} (xs : List A) : List A
+  => aux nil xs
+  \where {
+    \func aux {A : \Type} (acc xs : List A) : List A \elim xs
+      | nil => acc
+      | cons a xs => aux (cons a acc) xs
+  }
+
+\open reverse
+
+\func reverse-isInvolutive {A : \Type} (xs : List A) : reverse (reverse xs) = xs
+  => aux-lem nil xs
+  \where {
+    \func aux-lem {A : \Type} (acc xs : List A) : reverse (aux acc xs) = aux xs acc \elim xs
+      | nil => idp
+      | cons a xs => aux-lem (cons a acc) xs
+  }
