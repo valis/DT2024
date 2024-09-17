@@ -289,6 +289,25 @@
 
 \open reverse
 
+-- reverse (cons x xs) => rev nil (cons x xs) => rev (cons x nil) xs
+-- reverse (reverse (cons x xs)) =>
+--   reverse (rev (cons x nil) xs) =>
+--   rev nil (rev (cons x nil) xs)
+--
+-- Если попытаться доказать напрямую, что reverse (reverse xs) = xs, то нам нужно будет доказать, что rev nil (rev (cons x nil) xs) = cons x xs, но сделать это, используя индукционную гипотезу, не получится.
+-- Нужно усилить утверждение, чтобы индукционная гипотеза тоже была бы более сильной.
+-- Другими словами, мы будем доказывать более общее свойство reverse.rev, а через него уже свойство reverse.
+
+{-
+\func reverse-isInvolutive' {A : \Type} (xs : List A) : reverse (reverse xs) = xs
+  | nil => idp
+  | cons x nil => idp
+  | cons x (cons a xs) => {?}
+-}
+
+-- aux acc xs === reverse xs ++ acc
+-- reverse (aux acc xs) === reverse (reverse xs ++ acc) === reverse acc ++ reverse (reverse xs) === reverse acc ++ xs === aux xs acc
+
 \func reverse-isInvolutive {A : \Type} (xs : List A) : reverse (reverse xs) = xs
   => aux-lem nil xs
   \where {
