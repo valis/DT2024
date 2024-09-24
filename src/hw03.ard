@@ -1,0 +1,43 @@
+\import Data.List
+\open Nat(+,*)
+
+-- 1. Чему равно fileTest (в нормальной форме)? Докажите это.
+
+-- 2. Чему равно M5.t''' (в нормальной форме)? Докажите это.
+
+-- 3. Докажите ассоциативность ++.
+
+\func ++-assoc {A : \Type} (xs ys zs : List A) : (xs ++ ys) ++ zs = xs ++ (ys ++ zs) => {?}
+
+-- 4. Докажите, что reverse (reverse xs) = xs, где reverse определен через ++.
+
+\func reverse {A : \Type} (xs : List A) : List A
+  | nil => nil
+  | :: x xs => reverse xs ++ x :: nil
+
+-- Это утверждение будет полезно для доказательства.
+\func reverse++ {A : \Type} (xs ys : List A) : reverse (xs ++ ys) = reverse ys ++ reverse xs => {?}
+
+\func reverse-isInvolutive {A : \Type} (xs : List A) : reverse (reverse xs) = xs => {?}
+
+-- 5. Докажите дистрибутивность умножения над сложением для натуральных чисел.
+
+\func rdistr (n m k : Nat) : (m + k) * n = m * n + k * n => {?}
+
+\func ldistr (n m k : Nat) : n * (m + k) = n * m + n * k => {?}
+
+-- 6. Определите конгруэнтность для функций двух аргументов через transport.
+--    Можно использовать любые функции, определенные через transport.
+
+\func pmap2 {A B C : \Type} (f : A -> B -> C) {a a' : A} (p : a = a') {b b' : B} (q : b = b') : f a b = f a' b' => {?}
+
+-- 7. Докажите, что transport выражается через pmap и repl и наоборот.
+
+-- repl говорит, что если у нас есть два равных типа, то у нас есть функция из одного во второй.
+-- Определите repl через transport.
+
+\func repl {A B : \Type} (p : A = B) (a : A) : B => {?}
+
+-- Определите transport через repl и pmap.
+
+\func transport' {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a' => {?}

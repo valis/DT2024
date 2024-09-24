@@ -1,0 +1,195 @@
+\import Data.List
+\import Function.Meta
+\import Paths
+\import Paths.Meta
+\open Nat
+
+-- 1. Синонимы типов.
+
+-- В языке с зависимыми типами не нужны синонимы типов, т.к. мы можем просто определить функцию, возвращающую нужный тип.
+\func NatList => List Nat
+{- Haskell:
+   type NatList = List Nat
+-}
+
+\data NatList'' | natList (List Nat)
+
+\type NatList' => List Nat
+
+\func foo (xs : NatList') : NatList' \elim xs
+  | nil => nil
+  | :: a l => l
+
+-- 2. Пространства имен и модули.
+
+{- Haskell:
+fff :: [a] -> [a]
+fff [] = g []
+  where g = id
+fff (x : xs) = h
+  where h = xs
+
+ggg = g
+-}
+
+-- 2. Пространства имен и модули.
+
+-- \where в отличии от хаскелла относится не к отдельной клозе, а ко всему определению.
+\func fff (x : Nat) => ggg
+  \where {
+    \func ggg => 0
+    \func hhh => 1
+  }
+-- Функции, определенные в \where, почти ничем не отличаются от обычных функций.
+-- Единственное отличие заключается в том, что они находятся в другом пространстве имен.
+\func gggTest => fff.ggg
+
+-- Сноска
+-- Можно использовать \let, который несколько проще, чем в хаскелле.
+-- В arend нельзя определять рекурсивные функции в \let и переменные могут ссылаться только на предыдущие переменные.
+\func letExample (p : \Sigma Nat Nat) =>
+  \let | x => 1
+       | y => x + x
+       | (a,b) => p
+       | f n => suc n
+  \in f (x + y * y + a * b)
+
+-- Модули используются для группирования определений.
+\module M1 \where {
+  \func f => 82
+  \func g => 77
+  \func h => 25
+}
+
+-- Определения f, g и h недоступны в текущем простраснтве имен.
+-- К ним нужно обращаться через M1.
+\func moduleTest => (M1.f,M1.g,M1.h)
+
+\module M2 \where {
+  -- Если открыть модуль, то можно обращаться к его содержимому напрямую.
+  \open M1
+  \func t => f
+  \func t' => g
+  \func t'' => h
+}
+
+\module M3 \where {
+  -- Можно открыть только часть определений в модуле.
+  \open M1(f,g)
+  \func t => f
+  \func t' => g
+  \func t'' => M1.h -- К остальным определениям всё ещё можно доступаться по полному имени.
+}
+
+\module M4 \where {
+  -- Каждому определению тоже соответствует модуль.
+  \func functionModule => 34
+    \where {
+      \func f1 => 42
+      \func f2 => 61
+      \func f3 => 29
+    }
+  \func t => functionModule.f1
+  \func t' => functionModule.f2
+  \func t'' => (f1, f3)
+    \where \open functionModule(f1,f3) -- данный \open относится ко всему, что объявленно в \where-блоке для t'', а также к самому t''.
+}
+
+\module M5 \where {
+  -- Если определения в двух модулях повторяются, то можно их либо скрыть, либо переименовать.
+  \open M2 \hiding (t') -- открыть все определения кроме t'
+  \open M3 (t \as M3_t) -- открыть только t, переименовав в M3_t.
+  \open M4 \using (t \as M4_t) -- открыть все определения, переименовав t в M4_t.
+  \func t'' => (M3_t, M4_t, t', t, functionModule, functionModule.f1, functionModule.f2, functionModule.f3)
+  \func t''' => (t'', M2.t'', M4.t'') -- t'' в текущем модуле перекрывает t'' из M2 и M4, но к ним всё ещё можно доступаться по полному имени.
+}
+
+-- \import X делает файл X видимым в текущем файле.
+-- Также \import делает \open.
+-- Все конструкции, которые есть для \open, также доступны для \import.
+\import Test (foobar \as foobar', foobar3)
+\import TestDir.Test
+-- Если нужно только сделать файл видимым, но не открывать его содержимое, можно использовать следующую конструкцию:
+\import TestDir.Test2()
+
+\func fileTest => (foobar, foobar', Test.foobar1, Test.foobar2, Test.foobar3, TestDir.Test2.foobar)
+
+-- 3. \elim или \case?
+
+-- Функции f и f' эквивалентны, но в данной ситуации лучше использовать f', так как выражение вида f' n является нормальной формой, а выражение f n раскрывается в определение f, что менее удобно.
+\func f (x : Nat) : Nat => \case x \with { zero => 0 | suc n => n }
+
+\func f' (x : Nat) : Nat \elim x | zero => 0 | suc n => n
+
+\func g (n : Nat) => f' n
+
+-- 4. Симметричность, транзитивность, принцип Лейбница, pmap через него.
+
+-- Принцип Лейбница говорит, что если a и a' обладают одними и теми же свойствами,
+-- то они равны.
+-- Его легко доказать.
+\func Leibniz {A : \Type} {a a' : A}
+              (f : \Pi (P : A -> \Type) -> \Sigma (P a -> P a') (P a' -> P a)) : a = a'
+  => (f (\lam x => a = x)).1 idp
+
+-- Обратный принцип Лейбница (который мы тоже будем называть принципом Лейбница) говорит, что если a = a', то они обладают одними и теми же свойствами, т.е. если верно B a, то верно B a'.
+-- \func transport {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a'
+
+\func transport' {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a'
+  => {?}
+
+-- Используя принцип Лейбница, легко доказать (почти) все свойства равенства.
+-- Симметричность
+\func sym' {A : \Type} {a a' : A} (p : a = a') : a' = a
+  => transport (\lam x => x = a) p idp
+
+-- через rewrite
+\func sym'' {A : \Type} {a a' : A} (p : a = a') : a' = a
+  => rewrite p idp
+
+-- Транзитивность
+\func trans {A : \Type} {a a' a'' : A} (p : a = a') (q : a' = a'') : a = a''
+  => transport (\lam x => a = x) q p
+
+-- через rewrite
+\func trans' {A : \Type} {a a' a'' : A} (p : a = a') (q : a' = a'') : a = a''
+  => rewriteI q p
+
+-- через другой rewrite
+\func trans'' {A : \Type} {a a' a'' : A} (p : a = a') (q : a' = a'') : a = a''
+  => rewrite p q
+
+-- Конгруэнтность
+\func pmap' {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a'
+  => transport (\lam x => f a = f x) p idp
+
+-- через rewrite
+\func pmap'' {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a'
+  => rewrite p idp
+
+-- 5. Еще примеры утверждений и доказательств: ассоциативность сложения натуральных чисел, инволютивность reverse.
+
+-- Ассоциативность + доказывается индукцией по z (так как + определен рекурсией по правому аргументу).
+\func +-assoc (x y z : Nat) : (x + y) + z = x + (y + z) \elim x
+  | 0 => idp
+  | suc x => pmap suc (+-assoc x y z)
+
+\func +-comm (x y : Nat) : x + y = y + x \elim x
+  | 0 => idp
+  | suc x => pmap suc (+-comm x y)
+
+\func \infixl 6 +' (x y : Nat) : Nat \elim y
+  | 0 => x
+  | suc y => suc (x +' y)
+
+\func +'-comm (x y : Nat) : x +' y = y +' x
+  | 0, 0 => idp
+  | 0, suc y => pmap suc (+'-comm 0 y)
+  | suc x, 0 => pmap suc (+'-comm x 0)
+  | suc x, suc y => pmap suc $ trans (+'-comm (suc x) y) $ trans (pmap suc $ sym' $ +'-comm x y) (+'-comm x (suc y))
+
+\func +''-comm (x y : Nat) : x +' y = y +' x
+  | 0, 0 => idp
+  | 0, suc y => pmap suc (+''-comm 0 y)
+  | suc x, 0 => pmap suc (+''-comm x 0)
+  | suc x, suc y => pmap suc $ +''-comm (suc x) y *> pmap suc (inv $ +''-comm x y) *> +''-comm x (suc y)
