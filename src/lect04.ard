@@ -1,0 +1,201 @@
+\import Arith.Nat
+\import Data.Bool
+\import Data.Maybe
+\import Data.Or
+\import Logic
+\import Order.LinearOrder
+\import Order.StrictOrder
+\import Paths
+\open Nat
+
+-- 1. Рекурсивное определение vec, head, tail.
+
+\func vec (A : \Type) (n : Nat) : \Type \elim n
+  | 0 => \Sigma
+  | suc n => \Sigma A (vec A n)
+
+\func head {A : \Type} (n : Nat) (xs : vec A (suc n))
+  => xs.1
+
+\func tail {A : \Type} (n : Nat) (xs : vec A (suc n))
+  => xs.2
+
+-- 2. Индуктивное определиние Vec, head, tail, append, length.
+
+\data Vec (A : \Type) (n : Nat) \elim n
+  | 0 => nil
+  | suc n => cons A (Vec A n)
+
+-- nil : \Pi {A : \Type} -> Vec A 0
+-- nil : Vec A (suc n) -- false
+-- cons : \Pi {A : \Type} {n : Nat} -> A -> Vec A n -> Vec A (suc n)
+
+{-
+\data Vec (A : \Type) : Nat -> \Type
+  | nil : Vec A 0
+  | cons {n : Nat} : A -> Vec A n -> Vec A (suc n)
+
+\data \infix 1 = {A : \Type} (a : A) : A -> \Type
+  | idp : a = a
+
+\data D (A : \Type) : Nat -> \Type
+  | nil : D A 0
+  | cons {n : Nat} : A -> D A (n + n)
+
+\func foo {A : \Type} {n : Nat} (d : D A (n * n)) \elim d
+  | nil => ...
+  | cons {k} a => ...
+
+\func bar {A : \Type} {k : Nat} (d : D A k)
+  | {A}, .{0}, nil => ...
+  | {A}, .{n + n}, cons {n} a => ...
+
+\data D' (A : \Type) (k : Nat)
+  | nil (k = 0)
+  | cons {n : Nat} (k = n + n) A
+
+-}
+
+-- Конструкторы принимают параметры типа данных в качестве неявных аргументов.
+\func emptyList => nil {Nat}
+
+\func Head {A : \Type} {n : Nat} (xs : Vec A (suc n)) : A \elim xs
+  | cons a xs => a
+
+\func Tail {A : \Type} {n : Nat} (xs : Vec A (suc n)) : Vec A n \elim xs
+  | cons a xs => xs
+
+\func first {A : \Type} {n : Nat} (xs : Vec A n) : Maybe A \elim n, xs
+  | 0, nil => nothing
+  | suc n, cons a xs => just a
+
+\func \infixl 4 v++ {A : \Type} {n m : Nat} (xs : Vec A n) (ys : Vec A m) : Vec A (n + m) \elim n, xs
+  | 0, nil => ys
+  | suc n, cons a xs => cons a (xs v++ ys)
+
+-- Очень полезная функция.
+\func Vec-length {A : \Type} {n : Nat} (xs : Vec A n)
+  => n
+
+-- 3. Fin, toNat, lookup.
+
+-- Тип n-элементных множеств можно определить различными способами.
+-- Например, мы можем определить его как подтип натуральных чисел:
+-- \func fin (n : Nat) => \Sigma (x : Nat) (x < n)
+
+\func Fin' (n : Nat) : \Set
+  | 0 => Empty
+  | suc n => Maybe (Fin' n)
+
+-- Еще его можно определить индуктивно:
+\data Fin (n : Nat) \with
+  | suc n => {
+    | fzero
+    | fsuc (Fin n)
+  }
+
+{-
+\data Fin (n : Nat) \with
+  | suc n => fzero
+  | suc n => fsuc (Fin n)
+-}
+
+-- Fin 0 -- пустой тип.
+\func Fin-absurd {A : \Type} (x : Fin 0) : A
+
+\func fin0 : Fin 3 => fzero
+\func fin1 : Fin 3 => fsuc fzero
+\func fin2 : Fin 3 => fsuc (fsuc fzero)
+-- \func fin3 : Fin 3 => fsuc (fsuc (fsuc {?}))
+
+-- Fin 3 has at least 3 elements.
+--
+
+-- В Fin 3 не более 3 элементов.
+\func atMost3 (x : Fin 3) : Or (x = fin0) (Or (x = fin1) (x = fin2))
+  | fzero => inl idp
+  | fsuc fzero => inr (inl idp)
+  | fsuc (fsuc fzero) => inr (inr idp)
+  | fsuc (fsuc (fsuc ()))
+
+\func toNat {n : Nat} (x : Fin n) : Nat \elim n, x
+  | suc n, fzero => 0
+  | suc n, fsuc x => suc (toNat x)
+
+-- Безопасный lookup.
+\func lookup {A : \Type} {n : Nat} (xs : Vec A n) (i : Fin n) : A \elim n, xs, i
+  | suc n, cons a xs, fzero => a
+  | suc n, cons a xs, fsuc i => lookup xs i
+
+-- 5. Элиминаторы.
+
+{-
+\func h (b : Bool) : P b
+  | true => t : P true
+  | false => f : P false
+
+\func h' => Bool-elim P t f
+ -}
+
+-- Элиминатор для Bool (рекурсор для Bool -- это просто if).
+\func Bool-elim (P : Bool -> \Type)
+                (t : P true)
+                (f : P false)
+                (x : Bool) : P x
+  \elim x
+    | false => f
+    | true => t
+
+\func Bool-rec (P : \Type)
+               (t : P)
+               (f : P)
+               (x : Bool) : P
+  => Bool-elim (\lam _ => P) t f x
+
+{-
+\func h (n : Nat) : P n
+  | zero => z : P 0
+  | suc n => s n (h n) : P (suc n)
+
+\func h' => Nat-elim P t s
+ -}
+
+-- Элиминатор для Nat
+\func Nat-elim (P : Nat -> \Type)
+               (z : P zero)
+               (s : \Pi (n : Nat) -> P n -> P (suc n))
+               (x : Nat) : P x
+  \elim x
+    | 0 => z
+    | suc x => s x (Nat-elim P z s x)
+
+-- Рекурсор для Nat
+\func Nat-rec (P : \Type)
+              (z : P)
+              (s : Nat -> P -> P)
+              (x : Nat) : P
+  => Nat-elim (\lam _ => P) z s x
+
+\func add (n m : Nat) : Nat \elim n
+  | 0 => m
+  | suc n => suc (add n m)
+
+\func add' (n m : Nat) : Nat
+  => Nat-rec Nat m (\lam n r => suc r) n
+
+\func comm (n m : Nat) : n + m = m + n \elim n
+  | 0 => idp
+  | suc n => pmap suc (comm n m)
+
+\func comm' (n m : Nat) : n + m = m + n
+  => Nat-elim (\lam n => n + m = m + n) idp (\lam n r => pmap suc r) n
+
+\func Nat-ind (P : Nat -> \Type)
+              (s : \Pi (n : Nat) -> (\Pi (k : Nat) -> k < n -> P k) -> P n)
+              (x : Nat) : P x
+  => aux (suc x) x id<suc
+  \where {
+    \func aux (x k : Nat) (k<x : k < x) : P k \elim x, k, k<x
+      | suc x, 0, NatSemiring.zero<suc => s 0 \lam k k<0 => \case k<0
+      | suc x, suc k, NatSemiring.suc<suc k<x => s (suc k) \lam m m<k+1 => aux x m (<_suc_<= m<k+1 <∘r k<x)
+  }
