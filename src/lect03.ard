@@ -1,5 +1,7 @@
+\import Algebra.Meta
 \import Data.List
 \import Function.Meta
+\import Meta
 \import Paths
 \import Paths.Meta
 \open Nat
@@ -30,9 +32,7 @@ fff (x : xs) = h
   where h = xs
 
 ggg = g
--}
-
--- 2. Пространства имен и модули.
+ -}
 
 -- \where в отличии от хаскелла относится не к отдельной клозе, а ко всему определению.
 \func fff (x : Nat) => ggg
@@ -52,6 +52,13 @@ ggg = g
        | y => x + x
        | (a,b) => p
        | f n => suc n
+  \in f (x + y * y + a * b)
+
+\func haveExample (p : \Sigma Nat Nat) =>
+  \have | x => 1
+        | y => x + x
+        | (a,b) => p
+        | f n => suc n
   \in f (x + y * y + a * b)
 
 -- Модули используются для группирования определений.
@@ -118,15 +125,12 @@ ggg = g
 
 -- Функции f и f' эквивалентны, но в данной ситуации лучше использовать f', так как выражение вида f' n является нормальной формой, а выражение f n раскрывается в определение f, что менее удобно.
 \func f (x : Nat) : Nat => \case x \with { zero => 0 | suc n => n }
-
 \func f' (x : Nat) : Nat \elim x | zero => 0 | suc n => n
-
 \func g (n : Nat) => f' n
 
 -- 4. Симметричность, транзитивность, принцип Лейбница, pmap через него.
 
--- Принцип Лейбница говорит, что если a и a' обладают одними и теми же свойствами,
--- то они равны.
+-- Принцип Лейбница говорит, что если a и a' обладают одними и теми же свойствами, то они равны.
 -- Его легко доказать.
 \func Leibniz {A : \Type} {a a' : A}
               (f : \Pi (P : A -> \Type) -> \Sigma (P a -> P a') (P a' -> P a)) : a = a'
@@ -167,6 +171,9 @@ ggg = g
 \func pmap'' {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a'
   => rewrite p idp
 
+\func pmap_ {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a'
+  => pmap f $ later $ rewrite p idp
+
 -- 5. Еще примеры утверждений и доказательств: ассоциативность сложения натуральных чисел, инволютивность reverse.
 
 -- Ассоциативность + доказывается индукцией по z (так как + определен рекурсией по правому аргументу).
@@ -186,10 +193,24 @@ ggg = g
   | 0, 0 => idp
   | 0, suc y => pmap suc (+'-comm 0 y)
   | suc x, 0 => pmap suc (+'-comm x 0)
-  | suc x, suc y => pmap suc $ trans (+'-comm (suc x) y) $ trans (pmap suc $ sym' $ +'-comm x y) (+'-comm x (suc y))
+  | suc x, suc y => pmap suc $ +'-comm (suc x) y *> pmap suc (inv (+'-comm x y)) *> +'-comm x (suc y)
 
-\func +''-comm (x y : Nat) : x +' y = y +' x
+\func +_-comm {x y : Nat} : x +' y = y +' x \elim x, y
   | 0, 0 => idp
-  | 0, suc y => pmap suc (+''-comm 0 y)
-  | suc x, 0 => pmap suc (+''-comm x 0)
-  | suc x, suc y => pmap suc $ +''-comm (suc x) y *> pmap suc (inv $ +''-comm x y) *> +''-comm x (suc y)
+  | 0, suc y => pmap suc +_-comm
+  | suc x, 0 => pmap suc +_-comm
+  | suc x, suc y => pmap suc $ +_-comm *> pmap suc (inv +_-comm) *> +_-comm
+
+\func +__-comm {x y : Nat} : x +' y = y +' x \elim x, y
+  | 0, 0 => idp
+  | 0, suc y => pmap suc +__-comm
+  | suc x, 0 => pmap suc +__-comm
+  | suc x, suc y => rewrite +__-comm $ rewriteI (+__-comm {x} {suc y}) $ rewriteI +__-comm idp
+
+\func +___-comm {x y : Nat} : x +' y = y +' x \elim x, y
+  | 0, 0 => idp
+  | 0, suc y => pmap suc +___-comm
+  | suc x, 0 => pmap suc +___-comm
+  | suc x, suc y => rewrite +___-comm $ rewriteI {2} +___-comm $ rewriteI +___-comm idp
+
+-- suc x + y = y + suc x == suc (y + x) = suc (x + y) == x + suc y = suc y + x
