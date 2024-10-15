@@ -89,15 +89,12 @@
 
 -- Еще его можно определить индуктивно:
 \data Fin (n : Nat) \with
-  | suc n => {
-    | fzero
-    | fsuc (Fin n)
-  }
+  | suc n => { | fzero | fsuc (Fin n) }
 
 {-
 \data Fin (n : Nat) \with
-  | suc n => fzero
   | suc n => fsuc (Fin n)
+  | suc n => fzero
 -}
 
 -- Fin 0 -- пустой тип.
@@ -127,6 +124,31 @@
   | suc n, cons a xs, fzero => a
   | suc n, cons a xs, fsuc i => lookup xs i
 
+-- 4. Data types may use non-structural recursion.
+
+{-
+\data K (n : Nat) \with
+  | 0 => k1
+  | suc n => k2 (K n -> K n)
+-}
+
+\func K (n : Nat) : \Set
+  | 0 => \Sigma
+  | suc n => K n -> K n
+
+{-
+\func KK (n : Nat) : \Set
+  | 0 => \Sigma
+  | suc n => KK (suc n)
+-}
+
+\data KK' (n : Nat) \elim n
+  | 0 => kk1
+  | suc n => kk2 (KK' (suc n))
+
+\func KK'-unique {n : Nat} (xs : KK' (suc n)) : Empty \elim xs
+  | kk2 xs => KK'-unique xs
+
 -- 5. Элиминаторы.
 
 {-
@@ -143,8 +165,8 @@
                 (f : P false)
                 (x : Bool) : P x
   \elim x
-    | false => f
-    | true => t
+  | false => f
+  | true => t
 
 \func Bool-rec (P : \Type)
                (t : P)
@@ -193,9 +215,124 @@
 \func Nat-ind (P : Nat -> \Type)
               (s : \Pi (n : Nat) -> (\Pi (k : Nat) -> k < n -> P k) -> P n)
               (x : Nat) : P x
-  => aux (suc x) x id<suc
+  => aux P s (suc x) x id<suc
   \where {
-    \func aux (x k : Nat) (k<x : k < x) : P k \elim x, k, k<x
-      | suc x, 0, NatSemiring.zero<suc => s 0 \lam k k<0 => \case k<0
-      | suc x, suc k, NatSemiring.suc<suc k<x => s (suc k) \lam m m<k+1 => aux x m (<_suc_<= m<k+1 <∘r k<x)
+    \func aux (P : Nat -> \Type)
+              (s : \Pi (n : Nat) -> (\Pi (k : Nat) -> k < n -> P k) -> P n)
+              (x y : Nat) (p : y < x) : P y
+    \elim x
+      | suc x => s y \lam k k<y => aux P s x k (k<y <∘l <_suc_<= p)
   }
+
+-- 5. Оператор J.
+
+-- Оператор J является обобщением transport.
+-- Если transport -- это независимый элиминатор, то J -- его зависимая версия.
+
+-- Можно сравнить с элиминаторами для Nat.
+{-
+-- Независимая версия:
+\func Nat-rec (B : \Type)
+    (z : B)
+    (s : Nat -> B -> B)
+    (n : Nat)
+    : B
+
+-- Зависимая версия:
+\func Nat-elim (B : Nat -> \Type)
+    (z : B 0)
+    (s : \Pi (k : Nat) -> B k -> B (suc k))
+    (n : Nat)
+    : B n
+-}
+
+-- Независимая версия:
+\func transport''''
+  {A : \Type}
+  {a a' : A}
+  (B : A -> \Type)
+  (b : B a)
+  (p : a = a')
+  : B a'
+  => {?}
+
+-- Зависимая версия:
+\func J
+  {A : \Type} {a : A}
+  (B : \Pi (a' : A) -> a = a' -> \Type)
+  (b : B a idp)
+  {a' : A} (p : a = a')
+  : B a' p
+  => {?}
+
+-- Если переписать тип B в некаррированом виде, то получится следующая версия того же оператора:
+-- Этот элиминатор в точности является элиминатором для Unit.
+-- Таким образом, J говорит, что в типе \Sigma (a' : A) (a = a') ровно один элемент.
+\func J'
+  {A : \Type} {a : A}
+  (B : (\Sigma (a' : A) (a = a')) -> \Type)
+  (b : B (a, idp))
+  (p : \Sigma (a' : A) (a = a'))
+  : B p
+  => {?}
+
+-- Напоминание как выглядит элиминатор для Unit.
+\data Unit | unit
+
+\func Unit-elim
+  (B : Unit -> \Type)
+  (b : B unit)
+  (p : Unit)
+  : B p
+  => {?}
+
+\func Unit-singleton (x : Unit) : x = unit
+  => Unit-elim (\lam x => x = unit) idp x
+
+\func Unit'-singleton {A : \Type} {a : A} (x : \Sigma (a' : A) (a = a')) : x = (a,idp)
+  => J' (\lam x => x = (a,idp)) idp x
+
+-- Это утверждение не типизируется.
+-- \func =-unique' {A : \Type} {a a' : A} (p : a = a') : p = idp => {?}
+
+-- Это утверждение типизируется, но не верно, т.е. в типе a = a может быть больше одного элемента.
+{-
+\func =-unique {A : \Type} {a : A} (p : a = a) : p = idp
+  \elim p
+  | idp => {?}
+-}
+
+-- J говорит, что для определения функции над a = a' достаточно определить ее для idp.
+-- При этом a' должен варьироваться вместе с a'.
+-- Если мы определим версию J, в которой a' всегда равно a, то мы получим оператор K:
+{-
+\func K {A : \Type} {a : A} (B : a = a -> \Type)
+    (b : B idp)
+    (p : a = a) : B p => {?}
+-}
+-- Этот оператор эквивалентен =-unique.
+-- Следовательно его невозможно доказать.
+-- Его можно добавить как аксиому, но мы не будем этого делать.
+-- Мы будем обсуждать его подробнее позже.
+
+-- 7. Matching with idp
+
+\func sym {A : \Type} {a a' : A} (p : a = a') : a' = a \elim p
+  | idp => idp
+
+\func trans {A : \Type} {a a' a'' : A} (p : a = a') (q : a' = a'') : a = a'' \elim q
+  | idp => p
+
+\func trans' {A : \Type} {a a' a'' : A} (p : a = a') (q : a' = a'') : a = a'' \elim p
+  | idp => q
+
+\func trans'' {A : \Type} {a a' a'' : A} (p : a = a') (q : a' = a'') : a = a'' \elim p, q
+  | idp, idp => idp
+
+\func foo {n : Nat} (p : 0 = n) : n = 0 \elim p
+  | idp => idp
+
+{-
+\func bar (p : 0 = 1) : Nat \elim p
+  | idp => 0
+-}
