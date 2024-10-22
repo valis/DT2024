@@ -1,0 +1,68 @@
+\import Data.Bool
+\import Data.List (List, length)
+\import Logic
+\import lect06
+\open Nat(+,*)
+
+-- 1. Определите предикат принадлежности элемента списку.
+
+\data In {A : \Type} (a : A) (xs : List A)
+
+-- Optional:
+-- 2. Докажите эквивалентность четырех различных определений LessOrEq: lessOrEq, lessOrEq', LessOrEq и LessOrEq'.
+
+-- 3. Определите рефлексивное транзитивное замыкание отношения.
+--    То есть ReflTransClosure R -- это минимальное рефлексивное и транзитивное отношение, содержащее R.
+
+\data ReflTransClosure {A : \Type} (R : A -> A -> \Type) (x y : A)
+
+-- 4. Докажите, что если R уже рекфлексивно и транзитивно, то ReflTransClosure R эквивалентно R.
+
+\func \infix 4 <-> (A B : \Type) => \Sigma (A -> B) (B -> A)
+
+\func ReflTransClosure-lem {A : \Type} (R : A -> A -> \Type) (refl : \Pi (x : A) -> R x x) (trans : \Pi (x y z : A) -> R x y -> R y z -> R x z)
+  : \Pi (x y : A) -> R x y <-> ReflTransClosure R x y
+  => {?}
+
+-- 5. Определите предикат Sublist xs ys на списках, означающий "список xs является подсписком ys".
+
+-- 6. Докажите, что Sublist (filter p xs) xs для любых p и xs.
+
+-- 7. Определите filter через if, а не через \case.
+--     Докажите для этой версии filter лемму filter-lem.
+
+\func filter' {A : \Type} (p : A -> Bool) (xs : List A) : List A => {?}
+
+\func filter-lem {A : \Type} (p : A -> Bool) (xs : List A) : LessOrEq (length (filter' p xs)) (length xs) => {?}
+
+-- 8. Закончите определение функции \func BoolFuncLem (f : Bool -> Bool) (x : Bool) : f (f (f x)) = f x из лекции.
+
+-- 9. Докажите, что предикат isEven разрешим.
+
+\func isEven (n : Nat) => \Sigma (k : Nat) (n = 2 * k)
+
+\func isEven-dec : DecPred isEven => {?}
+
+-- 10. Докажите, что функции FromBoolToDec и FromDecToBool взаимно обратны.
+
+\func bdb {A : \Type} (p : A -> Bool) : FromDecToBool (FromBoolToDec p) = p => {?}
+
+-- Мы не можем доказать, что FromBoolToDec (FromDecToBool P) = P, но мы можем доказать более слабое утверждение: эти предикаты логически эквивалентны.
+-- Для этого введем эквивалентность предикатов.
+
+\func dbd {A : \Type} (P : \Sigma (P : A -> \Type) (DecPred P))
+  : \Pi (x : A) -> (FromBoolToDec (FromDecToBool P)).1 x <-> P.1 x
+  => {?}
+
+-- Optional:
+-- 11. Парадокс Рассела показывает, что не существует множества всех множеств.
+-- Если такое множеств существует, то мы можем определить множество B, состоящее из множеств, не содержащих себя.
+-- Тогда B принадлежит себе тогда и только тогда, когда оно себе не принадлежит.
+-- Отсюда следует противоречии.
+-- Теорема Кантора утверждает, что не сущесвует множества X с сюръекцией из X в множество подмножеств X.
+-- Ее доказательство также конструирует утверждение, которое верно тогда и только тогда, когда оно ложно.
+-- Верно, что в общем случае существование такого утверждения влечет противоречие.
+-- Это легко доказать при помощи исключенного третьего, но утверждение верно и без него.
+-- Докажите этот факт.
+\func contrProp {A : \Type} (p : A -> Not A) (q : Not A -> A) : Empty
+  => {?}

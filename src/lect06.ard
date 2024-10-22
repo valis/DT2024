@@ -1,0 +1,316 @@
+\import Data.Bool
+\import Data.List
+\import Logic
+\import Meta
+\import Paths
+\import Paths.Meta
+
+-- 1. Вселенные, полиморфизм по уровням.
+
+-- Тип \Type0 содержит все типы, которые не упоминают \Type0.
+-- Тип \Type1 содержит все типы, которые могут упоминать \Type0, но не \Type1.
+-- И так далее. Тип \Type n содержит все типы, которые упоминают только \Type i для i < n.
+-- Тип \Type i называется вселенной, а число i называется уровнем вселенной.
+\func ttt : \Type2 => \Type0 -> \Type1
+
+\func id (A : \Type) (a : A) => a
+
+-- У каждого определения есть неявный параметр-уровень, к которому можно обратиться, написав \lp.
+-- Например, функция id, определенная выше, эквивалентна такому определению:
+\func id_ (A : \Type \lp) (a : A) => a
+
+-- Когда мы пишем \Type без указания уровня, тайпчекер сам выводит минимальный подходящий уровень.
+\func type : \Type => \Type
+
+-- Например, в примере выше у \Type, который написан в теле функции, будет выведен уровень \lp.
+-- У \Type, который написан в типе, уровень \lp не может быть, так как не верно, что \Type \lp : \Type \lp, поэтому он будет на 1 выше, то есть \suc \lp.
+\func type_ : \Type (\suc \lp) => \Type \lp
+
+-- На уровнях есть небольшой набор операций:
+-- * Любое натуральное число является уровнем
+-- * \suc l
+-- * \max l1 l2
+-- То есть любой уровень является либо константой, либо эквивалентен уровню вида \max (\lp + c) c', где c и c' -- константы, а \lp + c -- это уровень вида \suc (\suc ... (\suc \lp) ... ).
+-- Уровень пи-типов и других конструкций над типами -- это максимум из уровней типов, входящих в эту конструкцию.
+\func test0 : \Type (\max (\suc (\suc \lp)) 4) => \Type (\max \lp 3) -> \Type (\suc \lp)
+
+-- Когда мы определяем полиморфную функцию, такую как id, мы хотим, чтобы тип A мог лежать в любой вселенной.
+-- Поэтому все функции (и остальные определения) полиморфны по уровню вселенной, в которой они лежат.
+\func id'' (A : \Type) (a : A) => a
+
+-- Еще несколько примеров:
+\func test1_ => id \lp Nat 0
+\func test2_ => id (\suc \lp) \Type0 Nat
+\func test3 => id (\suc (\suc \lp)) (\Type0 -> \Type1) (\lam X => X)
+\func test4 => id (\suc \lp) _ id
+\func test4' => id (\suc \lp) (\Pi (A : \Type \lp) -> A -> A) (id \lp)
+
+-- При обращении к определению можно явно указать его уровень, то есть чему будет равен параметр \lp:
+\func test5 => id (\Type \lp) Nat
+-- Либо так:
+\func test5' => id \levels (\suc \lp) _ (\Type \lp) Nat
+-- Второй вариант синтаксиса полезен когда уровень является константой:
+\func test6 => id \levels 2 _ \Type1 \Type0
+-- Если при обращению к определению уровень не указан явно, он будет выведен автоматически как и в случае с \Type.
+-- В большинстве случаев нет необходимости указывать уровень явно.
+
+-- Параметры \data не влияют на его уровень.
+\data Magma' (A : \Type0) : \Type0
+  | con (A -> A -> A)
+
+\func test7 : \Type \lp => Magma' Nat
+
+-- 2. Предикаты.
+
+-- Есть несколько способов определять предикаты над некоторым типом A:
+-- * Выразить из через уже существующие (например равенство) и различные логические связки. Например, предикат isEven можно выразить как \lam n => \Sigma (k : Nat) (n = 2 * k).
+-- * Рекурсивно. Этот способ работает только если A -- тип данных.
+-- * Индуктивно.
+
+-- Определение <= через равенство.
+\func lessOrEq (n m : Nat) => \Sigma (k : Nat) (m = n Nat.+ k)
+
+-- \func lessOrEq_int (n m : Int) => \Sigma (k : Nat) (m = n + k)
+
+-- Рекурсивное определение предиката <=
+\func lessOrEq' (n m : Nat) : \Type
+  | 0, m => \Sigma
+  | suc n, 0 => Empty
+  | suc n, suc m => lessOrEq' n m
+
+{-
+
+----------
+  0 <= m
+
+
+    n <= m
+--------------
+suc n <= suc m
+
+ -}
+
+-- Первое индуктивное определение <=
+\data LessOrEq (n m : Nat) \with
+  | 0, m => zero<=_
+  | suc n, suc m => suc<=suc (LessOrEq n m)
+
+\func test11 : LessOrEq 0 100 => zero<=_
+\func test12 : LessOrEq 3 67 => suc<=suc (suc<=suc (suc<=suc zero<=_))
+-- \func test10 : LessOrEq 1 0 => ....
+
+-- Один и тот же предикат можно определить индуктивно различными способами.
+-- Когда мы хотим задать предикат индуктивно, нам нужно просто написать набор правил, которые верны для данного предиката и при этом пораждают его.
+-- Например, в LessOrEq у нас два правила: 0 <= m для любого m и, если n <= m, то suc n <= suc m. Любое неравенство можно получить из этих двух правил.
+
+-- Но это не единственный набор правил, который пораждает <=.
+-- Например, мы можем взять следующий набор: n <= n для всех n и, если n <= m, то n <= suc m.
+-- Этот набор реализован в LessOrEq''.
+
+{-
+
+  n = m
+----------
+  n <= m
+
+ n <= m
+----------
+n <= suc m
+
+ -}
+
+-- Второе индуктивное определение <=
+\data LessOrEq' (n m : Nat) \with
+  | n, m => <=-refl (n = m)
+  | n, suc m => <=-step (LessOrEq' n m)
+
+-- Второе индуктивное определение <=
+\data LessOrEq'' (n m : Nat)
+  | <=-refl' (n = m)
+  | <=-step' {k : Nat} (m = k Nat.+ k) (LessOrEq'' n k)
+
+{-
+----------
+  n <= n
+
+ n <= k
+----------
+n <= k + k
+ -}
+
+-- 3. Разрешимые предикаты.
+
+-- Предикат -- это функция вида P : A -> \Type.
+-- Предикат называется разрешимым, если существует алгоритм, разрешающий его, то есть по a : A возвращающий true, если P a верно, и false, если ложно.
+
+-- Так как у нас логика интуиционистская, то не все предикаты разрешимы.
+-- На самом деле, исключенное третье эквивалентно утверждению о том, что все предикаты разрешимы.
+
+-- Пример неразрешимого предиката, который мы запишем неформально, так как его формальное описание будет довольно длинным.
+-- P : Nat -> \Type
+-- P n = "останавливается ли машина Тьюринга с номером n на входе n"
+--
+-- Мы не можем ни доказать, что P разрешим, ни опровергнуть это, так как мы не предполагаем ни исключенное третье, ни его отрицание.
+--
+-- Более простой пример неразрешимого предиката -- это предикат равенства двух функций типа Nat -> Nat.
+
+-- Мы можем определить предикат разрешимости на предикатах.
+\data Decide (A : \Type)
+  | yes A
+  | no (Not A)
+
+-- DecPred P верно в тогда и только тогда, когда P разрешим.
+\func DecPred {A : \Type} (P : A -> \Type) : \Type
+  => \Pi (a : A) -> Decide (P a)
+
+-- Например, предикат \lam n => n = 0 разрешим.
+\func decide0 : DecPred (\lam (n : Nat) => n = 0)
+  => \lam n => \case n \as n \return Decide (n = 0) \with {
+    | 0 => yes idp
+    | suc n => no \lam p => \case p
+  }
+  \where {
+    \func aux (n : Nat) : Decide (n = 0)
+      | 0 => yes idp
+      | suc n => no \lam p => \case p
+  }
+
+-- 5. Предикаты A -> Bool
+
+-- Разрешимые предикаты вида A -> \Type в точности соответствуют функциям вида A -> Bool.
+
+\func So-dec {b : Bool} : Decide (So b) \elim b
+  | false => no \lam p => \case p
+  | true => yes ()
+
+-- Легко построить функции из A -> Bool в тип разрешимых предикатов и наоборот.
+-- Эти функции почти взаимно обратны. Это будет верно, если правильно сформулировать это утверждение.
+\func FromBoolToDec {A : \Type} (p : A -> Bool)
+  : \Sigma (P : A -> \Type) (DecPred P)
+  => (\lam a => So (p a), \lam a => So-dec)
+
+\func FromDecToBool {A : \Type} (P : \Sigma (P : A -> \Type) (DecPred P)) : A -> Bool
+  => \lam a => \case P.2 a \with {
+    | yes a1 => true
+    | no n => false
+  }
+
+-- 7. \case в языках с зависимыми типами является более сложной конструкцией в общем случаее, чем в языках без них.
+
+-- foo лучше доказать, просто обобщив утверждение, но мы докажем ее через \case, чтобы продемонстировать возможности этой конструкции.
+\func foo {A : \Type} (p : A -> Bool) (a : A) : p a = not (not (p a)) =>
+  -- Перед \with мы можем написать \return <expr>, где <expr> -- это тип, который возвращается из \case.
+  -- После выражения, на котором мы паттерн матчимся, можно написать \as b, где b -- это переменная, которая будет связана в этой конструкции.
+  -- Эту переменную можно использовать в выражении, которое идет после \return.
+  -- Идея в том, что возвращаемый тип может зависеть от выражения, на котором мы паттерн матчимся.
+  -- Эту конструкцию можно использовать, чтобы эту зависимость явно указать.
+  \case p a \as b \return b = not (not b) \with {
+    | true => idp -- В каждом отдельном случае нам нужно будет вернуть указанный после \return тип, в котором b заменено на соответствующий паттерн. Например, здесь нужно вернуть значение типа true = not (not true).
+    | false => idp -- А здесь мы возвращаем значение типа false = not (not false).
+  }
+
+-- foo можно переписать через helper.
+\func foo' {A : \Type} (p : A -> Bool) (a : A) : p a = not (not (p a))
+  => aux (p a)
+  \where {
+    \func aux (b : Bool) : b = not (not b) \elim b
+      | false => idp
+      | true => idp
+  }
+
+\func decide0' : DecPred (\lam (n : Nat) => n = 0)
+  => \lam n => \case \elim n \with {
+    | 0 => yes idp
+    | suc n => no \lam p => \case p
+  }
+
+\func foo'' {A : \Type} (p : A -> Bool) (a : A) : p a = not (not (p a)) =>
+  cases (p a) \with {
+    | false => idp
+    | true => idp
+  }
+
+-- 8. Пример доказательств через \case.
+
+-- Вспомогательное утверждение.
+\func <=-helper {x y : Nat} (p : LessOrEq x y) : LessOrEq x (suc y)
+  => {?}
+
+\func filter {A : \Type} (p : A -> Bool) (xs : List A) : List A \elim xs
+  | nil => nil
+  | :: x xs => \case p x \with {
+    | true => x :: filter p xs
+    | false => filter p xs
+  }
+
+\func <=-step-lem {n m : Nat} (n<=m : LessOrEq n m) : LessOrEq n (suc m)
+  => {?}
+
+-- Докажем, что длина отфильтрованного списка не превышает длины исходного.
+\func filter-lem {A : \Type} (p : A -> Bool) (xs : List A)
+  : LessOrEq (length (filter p xs)) (length xs) \elim xs
+  | nil => zero<=_
+  | a :: xs => \case p a \as b \return
+      LessOrEq (length (\case b \with {
+        | true => a :: filter p xs
+        | false => filter p xs
+      })) (suc (length xs))
+  \with {
+    | false => <=-step-lem (filter-lem p xs)
+    | true => suc<=suc (filter-lem p xs)
+  }
+
+\func filter-lem' {A : \Type} (p : A -> Bool) (xs : List A)
+  : LessOrEq (length (filter p xs)) (length xs) \elim xs
+  | nil => zero<=_
+  | a :: xs => cases (p a) \with {
+    | false => <=-step-lem (filter-lem p xs)
+    | true => suc<=suc (filter-lem p xs)
+  }
+
+\func filter-lem'' {A : \Type} (p : A -> Bool) (xs : List A)
+  : LessOrEq (length (filter p xs)) (length xs) \elim xs
+  | nil => zero<=_
+  | a :: xs => mcases \with {
+    | false => <=-step-lem (filter-lem p xs)
+    | true => suc<=suc (filter-lem p xs)
+  }
+
+-- 10. \case на idp.
+
+-- Когда мы паттерн матчимся на некотором значении e, связь этого выражения с резльтатом паттерн матчинга теряется.
+-- Например, в выражении \case e \with { | pat => expr } в expr мы даже не сможем доказать, что e равно pat.
+-- Иногда бывает необходимо запоминать эту связь.
+-- Для этого можно использовать следующий трюк.
+-- Мы в \case кроме самого выражения еще паттерн матчимся на idp, но указываем ему тип, который зависит от первого значения.
+-- Тогда в каждом случае q будем доказательством равенства между исходным значением и паттерном.
+\func baz {A : \Type}
+          (p : A -> Bool) (a : A) : p a = not (not (p a)) =>
+  -- Мы можем явно указывать не только тип возвращаемого значения, но и типы выражений, на которых мы паттерн матчимся.
+  -- И в них также можно использовать переменные, связанные в \as.
+  \case p a \as b, idp : _ = b \with {
+    | true, q => rewrite q idp -- Здесь q : true = p a
+    | false, q => rewrite q idp -- Здесь q : false = p a
+  }
+
+-- Через cases
+\func baz' {A : \Type}
+           (p : A -> Bool) (a : A) : p a = not (not (p a))
+  => cases (p a arg addPath) \with {
+    | false, q => {?}
+    | true, q => {?}
+  }
+
+-- 11. Еще один пример.
+
+\func BoolFuncLem (f : Bool -> Bool) (x : Bool) : f (f (f x)) = f x
+  => \case \elim x, f true, f false \with {
+    | false, false, false => {?}
+    | false, false, true => {?}
+    | false, true, false => {?}
+    | false, true, true => {?}
+    | true, false, false => {?}
+    | true, false, true => {?}
+    | true, true, false => {?}
+    | true, true, true => {?}
+  }
