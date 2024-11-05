@@ -1,0 +1,37 @@
+\import Data.Bool
+\import Data.List \hiding (headDef)
+\import hw06
+\import lect08
+\import Order.LinearOrder
+\open LinearOrder
+
+-- 1. Реализуйте функцию filter и докажите ее корректность, то есть, что выполнены следующие условия:
+--    * filter p xs является подсписком xs
+--    * Все элементы filter p xs удовлетворяют предикату p
+--    * Любой подсписок xs с тем же свойством является подсписком filter p xs
+
+-- 2. Докажите, что Perm l1 l2 тогда и только тогда, когда Insertion.sort l1 = Insertion.sort l2.
+
+-- 3. Докажите, что спецификация "результат является перестановкой входа и отсортирован" является полной для функции sort.
+
+\func completeness {A : Dec} (sort : List A -> List A) (l : List A) (p : Perm l (sort l)) (s : Sorted (sort l)) : sort l = Insertion.sort l
+  => {?}
+
+-- 4. Определите факториал через хвостовую рекурсию.
+--    Докажите, что он равен обычному определению факториала.
+
+-- 5. Определите функцию, которая проверяет правильность скобочной последовательности.
+--    Докажите ее корректность.
+
+\data Paren | Left | Right
+
+\func isBalanced (xs : List Paren) : Bool
+  => {?}
+
+\data Balanced (xs : List Paren) \with
+  | nil => nil-balanced
+  | :: Left xs => cons-balanced {ys : List Paren} (Balanced ys) (xs = ys ++ Right :: nil)
+  | xs => append-balanced {ys zs : List Paren} (Balanced ys) (Balanced zs) (xs = ys ++ zs)
+
+\func isBalanced-correct (xs : List Paren) : (isBalanced xs = true) <-> Balanced xs
+  => {?}
