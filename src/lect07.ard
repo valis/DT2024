@@ -35,8 +35,8 @@
   | snd => 0
 }
 
--- (\lam x => f x) == f
--- (p.1,p.2) = p
+\func tupleEta (p : \Sigma Nat Nat) : (p.1,p.2) = p
+  => idp
 
 -- Для рекордов есть эта-эквивалентность.
 \func etaNatPair' (p : NatPair') : p = \new NatPair' { | fst => p.fst | snd => p.snd }
@@ -111,13 +111,20 @@
   | snd'' => 0
 }
 
+-- И наоборот, тип Pair эквивалентен следующему типу:
+{-
+\record Pair'
+  | A : \Type
+  | B : \Type
+  | fst_ : A
+  | snd_ : B
+-}
+
 -- Единственное отличие параметров и полей -- это то, что параметры по умолчанию не видны снаружи от класса, а поля видны.
 -- Мы всё еще можем сделать параметры видимыми при помощи инструкции \open:
 -- \open NatPair''
 -- Либо мы можем обращаться к ним по полному имени:
 \func natPair''foo => NatPair''.fst''
-
-\func test__ => Pair.A
 
 -- Верно и орабтное.
 -- Если рекорд объявлен с полями, мы всё еще можем передавать их как аргументы при вызове:
@@ -197,9 +204,11 @@
 -- Инстансы являются обычными функциями.
 \func instEx => NatMonoid.id-left
 
-\func instExF {M : Monoid} (x y z : M.A) => (x * y) * z
+\func instExF (M : Monoid) => M.id
 
-\func instEx' => instExF 0 1 2
+\func instExF_ {M : Monoid} (x y z : M) => x * (y * z)
+
+\func instEx' => instExF NatMonoid'
 
 -- Поля класса имеют такой же тип как и поля рекорда:
 -- * {M : Monoid} (x y : M.A) : M.A
@@ -209,6 +218,18 @@
 -- Сейчас поле считается классифицирующим, если оно является первым явным параметром класса.
 -- Например, в следующем примере первый неявный аргумент для * будет равен NatMonoid, так как это единственный инстанс моноида, в котором классифицирующее поле A равно Nat, типу аргументов этой функции.
 \func f (x y : Nat) => x * y
+
+\record R (x y : Nat) {
+  \func test => x Nat.+ y
+} \where {
+  \func test' {this : R} => this.x Nat.+ this.y
+}
+
+\class Map \noclassifying {A B : \Type} (f : A -> B) {
+  \func isInj : \Type => \Pi (x y : A) -> f x = f y -> x = y
+  \func prop1 (p : isInj) : 0 = 0 => {?}
+  \func prop2 (p : isInj) : 1 = 1 => {?}
+}
 
 -- Классы можно использовать как классы типов в хаскелле.
 -- Например, класс Eq можно записать следующим образом:
@@ -225,12 +246,6 @@
 -- \func xxxx => refl 1
 
 -- 7. Classifying field.
-
-\record NatPair_
-  | \coerce fst__ : Nat
-  | snd__ : Nat
-
-\func NatPair_ex (x : NatPair_) : Nat => x
 
 -- Классицирующее поле обадает рядом дополнительных свойств.
 -- Например, если в некотором месте ожидается элемент типа X, а передается элемент класса C, классифицирующее поле которого имеет тип X, оно будет неявно вставленно вместо этого значения.
@@ -259,14 +274,6 @@
 
 -- Преобразование натуральных чисел к Int выполнено именно таким образом:
 \func hhh : Int => 0
-
-\record R (x y : Nat) {
-  \func test => x Nat.+ y
-} \where {
-  \func test' {this : R} => this.x Nat.+ this.y
-}
-
-\func rrr (x : R) => x.test
 
 -- 8. \extends, diamond problem.
 
@@ -304,13 +311,45 @@
 
 \record Z' \extends X', Y'
 
+-- Например, тип колец можно реализовать следующим образом.
+\class AbGroup \extends CommMonoid {
+  | inverse : A -> A
+  | inv-left (x : A) : inverse x * x = id
+  | inv-right (x : A) : x * inverse x = id
+}
+
+-- Чтобы отличать структуру сложения от структуры умножения, мы не наследуемся от моноида, но добавляем его как поля.
+-- При этом, подлежащий тип и группы по сложению и моноида по умножению должен быть одинаковый.
+-- Поэтому мы указываем в типе mulMonoid, что поле подлежащего типа реализовано определенным образом, а конкретно как подлежащий тип группы по сложению.
+\class Ring \extends AbGroup
+  | mulMonoid : Monoid A
+
+-- Определим еще один тип абелевых групп, который не наследует моноиды.
+\class AbGroup' (A : \Set) {
+  -- Здесь нужно перечислить все поля из Monoid, CommMonoid и AbGroup.
+}
+
+-- Если мы попытаеся определить тип колец следующим образом, то у нас ничего не получится, так как структуры сложения и умножения будут совпадать.
+\class Ring' \extends AbGroup', Monoid
+  | Monoid.A => AbGroup'.A
+
 -- 9. Functor.
 
 -- Еще один пример: класс функторов.
 \class Functor (F : \Set -> \Set)
-  | fmap {A B : \Set} : (A -> B) -> (F A -> F B)
+  | fmap {A B : \Set} : (A -> B) -> F A -> F B
   | fmap-id {A : \Set} (x : F A) : fmap (\lam a => a) x = x
   | fmap-comp {A B C : \Set} (f : A -> B) (g : B -> C) (x : F A) : fmap (\lam a => g (f a)) x = fmap g (fmap f x)
+
+\instance ListFunctor_ : Functor List
+  | fmap => fmap
+  | fmap-id => {?}
+  | fmap-comp => {?}
+  \where {
+    \func fmap {A B : \Set} (f : A -> B) (xs : List A) : List B \elim xs
+      | List.nil => {?}
+      | a List.:: xs => {?}
+  }
 
 \instance ListFunctor : Functor List
   | fmap {A B : \Set} (f : A -> B) (xs : List A) : List B \elim xs {
@@ -325,3 +364,65 @@
     | List.nil => idp
     | a List.:: xs => pmap (_ List.::) (fmap-comp f g xs)
   }
+
+-- 10. Arrays
+
+\data D (n : Nat) | con__ (Fin n -> D n)
+
+-- Vec A n == (Fin n -> A)
+
+\data Tree (A : \Type) (n : Nat)
+  | leaf A
+  | branch (Fin n -> Tree A n)
+
+\func height {A : \Type} {n : Nat} (t : Tree A n) : Nat \elim t
+  | leaf a => 0
+  | branch f => \let xxx i => height (f i) \in {?}
+
+\record Array' (A : \Type) (len : Nat) (\coerce at : Fin len -> A)
+
+-- Array' A n == Vec A n
+-- Array' A == List A
+
+\func func1 : Fin 3 -> Nat
+  => \lam j => \case j \with {
+    | 0 => 1
+    | 1 => 2
+    | 2 => 3
+  }
+
+\func func2 : Fin 3 -> Nat
+  => \lam j => \case j \with {
+    | 0 => 1
+    | suc j => \case j \with {
+      | 0 => 2
+      | 1 => 3
+    }
+  }
+
+\func array1 : Array Nat \cowith
+  | len => 3
+  | at j => \case j \with {
+    | 0 => 1
+    | 1 => 2
+    | 2 => 3
+  }
+
+\func array2 : Array Nat \cowith
+  | len => 3
+  | at j => \case j \with {
+    | 0 => 1
+    | suc j => \case j \with {
+      | 0 => 2
+      | 1 => 3
+    }
+  }
+
+\func ok : array1 = array2 => idp
+
+\func map' {A B : \Type} (f : A -> B) (l : Array A) : Array B \elim l
+  | nil => nil
+  | :: a arr => f a :: map' f arr
+
+\func map {A B : \Type} (f : A -> B) (l : Array A) : Array B
+  => \lam j => f (l j)
