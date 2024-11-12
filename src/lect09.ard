@@ -1,0 +1,189 @@
+\import Data.Bool
+\import Data.Maybe
+\import Function.Meta
+\import Logic
+\import Meta
+\import Paths
+\import Paths.Meta
+\import lect06
+\import lect07 (Functor, fmap, fmap-comp)
+
+\class Monad \extends Functor
+  | return {A : \Set} : A -> F A
+  | \infixl 2 >>= {A B : \Set} : F A -> (A -> F B) -> F B
+  | return-left {A B : \Set} (a : A) (k : A -> F B) : return a >>= k = k a
+  | return-right {A : \Set} (m : F A) : m >>= return = m
+  | >>=-assoc {A B C : \Set} (m : F A) (k : A -> F B) (l : B -> F C) : (m >>= k) >>= l = m >>= (\lam x => k x >>= l)
+  | fmap f m => m >>= \lam a => return (f a)
+  | fmap-id => return-right
+  | fmap-comp f g m => unfold $ rewrite >>=-assoc $ pmap (m >>=) $ ext \lam a => inv (return-left _ _)
+
+\instance MaybeMonad : Monad Maybe
+  | return => just
+  | >>= {A B : \Set} (m : Maybe A) (k : A -> Maybe B) : Maybe B \elim m {
+    | nothing => nothing
+    | just a => k a
+  }
+  | return-left _ _ => idp
+  | return-right {A : \Set} (m : Maybe A) : m >>= just = m \elim m {
+    | nothing => idp
+    | just a => idp
+  }
+  | >>=-assoc {A B C : \Set} (m : Maybe A) (k : A -> Maybe B) (l : B -> Maybe C) : m >>= k >>= l = m >>= (\lam x => k x >>= l) \elim m {
+    | nothing => idp
+    | just a => idp
+  }
+
+-- 1. Лямбда исчисление.
+
+-- Term V -- тип термов, свободные переменные которых лежат в V.
+\data Term (V : \Set)
+  | var V
+  | app (Term V) (Term V)
+  | lam (Term (Maybe V))
+  | unit
+
+-- \x y. x
+-- lam "x" (lam "y" (var "x"))
+\func example {V : \Set} : Term V
+  => lam (lam (var (just nothing)))
+
+\func termMap {A B : \Set} (f : A -> B) (t : Term A) : Term B \elim t
+  | var v => var (f v)
+  | app t1 t2 => app (termMap f t1) (termMap f t2)
+  | lam t => lam (termMap (fmap f) t)
+  | unit => unit
+
+{-
+t ~> \x. t
+
+-- это некорректное определение termMap just
+\func lift {A : \Set} (t : Term A) : Term (Maybe A) \elim t
+  | var v => var (just v)
+  | unit => unit
+  | app t1 t2 => app (lift t1) (lift t2)
+  | lam t => lam (lift t)
+-}
+
+\func liftM {A B : \Set} (k : A -> Term B) (m : Maybe A) : Term (Maybe B) \elim m
+  | nothing => var nothing
+  | just a => termMap just (k a)
+
+\instance TermMonad : Monad Term
+  | return => var
+  | >>= {A B : \Set} (t : Term A) (k : A -> Term B) : Term B \elim t {
+    | var v => k v
+    | app t1 t2 => app (t1 >>= k) (t2 >>= k)
+    | lam t => lam (t >>= liftM k)
+    | unit => unit
+  }
+  | return-left _ _ => idp
+  | return-right {A : \Set} (t : Term A) : t >>= var = t \elim t {
+    | var v => idp
+    | app t1 t2 => pmap2 app (return-right t1) (return-right t2)
+    | lam t => pmap lam $ pmap (t >>=) (ext \lam m => cases m idp) *> return-right t
+    | unit => idp
+  }
+  | >>=-assoc {A B C : \Set} (t : Term A) (k : A -> Term B) (l : B -> Term C) : t >>= k >>= l = t >>= (\lam x => k x >>= l) \elim t {
+    | var v => idp
+    | app t1 t2 => pmap2 app (>>=-assoc t1 k l) (>>=-assoc t2 k l)
+    | lam t => pmap lam $ >>=-assoc _ _ _ *> pmap (t >>=) (ext \lam m => \case \elim m \with {
+      | nothing => idp
+      | just a => termMap_>>=-left _ _ _ *> termMap_>>=-right _ _ _
+    })
+    | unit => idp
+  }
+  \where {
+    \func termMap_>>=-left {A B C : \Set} (f : A -> B) (t : Term A) (k : B -> Term C)
+      : termMap f t >>= k = t >>= \lam a => k (f a) \elim t
+      | var v => idp
+      | app t1 t2 => pmap2 app (termMap_>>=-left f t1 k) (termMap_>>=-left f t2 k)
+      | lam t => pmap lam $ termMap_>>=-left _ _ _ *> pmap (t >>=) (ext \lam m => cases m idp)
+      | unit => idp
+
+    \func termMap_termMap {A B C : \Set} (t : Term A) (f : A -> B) (g : B -> C) : termMap g (termMap f t) = termMap (\lam a => g (f a)) t \elim t
+      | var v => idp
+      | app t1 t2 => pmap2 app (termMap_termMap t1 f g) (termMap_termMap t2 f g)
+      | lam t => pmap lam $ termMap_termMap _ _ _ *> pmap (\lam x => termMap x t) (ext \lam m => inv (fmap-comp f g m))
+      | unit => idp
+
+    \func termMap_>>=-right {A B C : \Set} (t : Term A) (k : A -> Term B) (f : B -> C) : t >>= (\lam a => termMap f (k a)) = termMap f (t >>= k) \elim t
+      | var v => idp
+      | app t1 t2 => pmap2 app (termMap_>>=-right t1 k f) (termMap_>>=-right t2 k f)
+      | lam t => pmap lam $ pmap (t >>=) (ext \lam m => \case \elim m \with {
+        | nothing => idp
+        | just a => termMap_termMap _ _ _ *> inv (termMap_termMap _ _ _)
+      }) *> termMap_>>=-right _ _ _
+      | unit => idp
+  }
+
+-- Отношение одношаговой редукции
+\data Red1 {V : \Set} (t s : Term V) \elim t, s
+  | app t a, s => beta {f : Term (Maybe V)} (t = lam f) (s = f >>= maybe a var)
+  | app t1 t2, app s1 s2 => {
+    | app-left (Red1 t1 s1) (t2 = s2)
+    | app-right (t1 = s1) (Red1 t2 s2)
+  }
+  | lam t, lam s => red-lam (Red1 t s)
+
+-- app (lam f) a ~> f[a]
+-- f : Term (Maybe A)
+-- a : Term A
+-- f[a] : Term A
+
+-- t < s iff Red1 t s
+
+-- Если red -- некоторое отношение на A, то элемент a : A называется достижимым, если не существует бесконечных цепочек редукций, начинающихся в a.
+-- Это определение хорошо работает только классически, интуиционистски мы определяем предикат достижимости индуктивно.
+-- В индуктивном построении будет всего одно правило: a -- достижим, если достижимы все a', к котором a редуцируется.
+\data Acc {A : \Type} (red : A -> A -> \Type) (a : A)
+  | acc (\Pi {a' : A} -> red a a' -> Acc red a')
+
+-- Так как функция вычисления термов должна быть тотально, то мы определим ее только для достижимых термов.
+-- Она будет дополнительно принимать стратегию редукции, то есть функцию, которая для каждого терма возвращает либо терм, к которому он редуцируется, либо доказательство, что таких термов нет.
+-- Возвращает функция eval терм вместе с доказательством, что он находится в нормальной форме.
+\func eval {V : \Set} (t : Term V) (a : Acc Red1 t)
+           (str : \Pi (s : Term V) -> Decide (\Sigma (q : Term V) (Red1 s q)))
+  : \Sigma (s : Term V) (\Pi (q : Term V) -> Not (Red1 s q)) \elim a
+  | acc f => \case str t \with {
+    | yes (q,t~>q) => eval q (f t~>q) str
+    | no n => (t, \lam q t~>q => n (q,t~>q))
+  }
+
+-- Если t достижим, то и lam t достижим.
+\func lamAcc {V : \Set} (t : Term (Maybe V)) (tAcc : Acc Red1 t) : Acc Red1 (lam t) \elim tAcc
+  | acc f => acc \lam {t'} r => \case \elim t', \elim r \with {
+    | lam t', red-lam r => lamAcc t' (f r)
+  }
+
+-- 2. Нейтральные термы.
+
+-- Терм называется нейтральным, если он достижим и в голове не содержит лямбду.
+-- Точнее предикат нейтральности определяется индуктивно:
+\data Neutral {V : \Set} (t : Term V) \elim t
+  | var v => neutral-var
+  | unit => neutral-unit
+  | app t s => neutral-app (Neutral t) (Acc Red1 s)
+
+-- Нейтральные термы замкнуты относительно редукций.
+\func neutralRed {V : \Set} {t s : Term V} (r : Red1 t s) (n : Neutral t) : Neutral s \elim t, s, r, n
+  | app t t1, s, beta idp p1, neutral-app () a
+  | app t t1, app s s1, app-left r idp, neutral-app n a => neutral-app (neutralRed r n) a
+  | app t t1, app s s1, app-right idp r, neutral-app n (acc f) => neutral-app n (f r)
+
+-- Нейтральные термы действительно достижимы.
+\func neutralAcc {V : \Set} {t : Term V} (n : Neutral t) : Acc Red1 t \elim t, n
+  | var v, neutral-var => acc \lam r => \case r
+  | unit, neutral-unit => acc \lam r => \case r
+  | app t t1, neutral-app n a => neutralAppAcc n (neutralAcc n) a
+  \where {
+    -- Для доказательства утверждения neutralAcc нам понадобится вспомогательное утверждение, которое говорит, что app t s достижим, если t и s достижимы и t нейтрален.
+    \func neutralAppAcc {V : \Set} {t s : Term V} (n : Neutral t)
+                        (a1 : Acc Red1 t) (a2 : Acc Red1 s) : Acc Red1 (app t s)
+      \elim a1, a2
+      | acc f1, acc f2 => acc \lam {t'} r => \case \elim t', \elim r \with {
+        | t', beta p p1 => \case rewrite p in n
+        | app t' _, app-left r idp => neutralAppAcc (neutralRed r n) (f1 r) (acc f2)
+        | app _ s', app-right idp r => neutralAppAcc n (acc f1) (f2 r)
+      }
+  }

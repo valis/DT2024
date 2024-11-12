@@ -1,0 +1,28 @@
+\import Data.Maybe
+\import lect06 (Decide)
+\import lect09
+
+-- 1. Определите отношение многошаговой редукции на Term.
+
+\func Red {V : \Set} (t s : Term V) : \Type => {?}
+
+-- 2. Стратегия редукции -- это функция, которая каждому терму сопоставляет либо некоторый терм, к которому он редуцируется за 1 шаг, либо доказательство, что таких термов нет.
+--    Определите любую стратегию редукции.
+
+\func strategy {V : \Set} (t : Term V) : Decide (\Sigma (s : Term V) (Red1 t s)) => {?}
+
+-- 3. Докажите, что подтермы достижимого терма достижимы.
+
+\func appAccLeft {V : \Set} {t s : Term V} (a : Acc Red1 (app t s)) : Acc Red1 t
+  => {?}
+
+\func appAccRight {V : \Set} {t s : Term V} (a : Acc Red1 (app t s)) : Acc Red1 s
+  => {?}
+
+\func subLamAcc {V : \Set} {t : Term (Maybe V)} (a : Acc Red1 (lam t)) : Acc Red1 t
+  => {?}
+
+-- 4. Определите функцию, которая по достижимому терму возвращает длину максимальной цепочки редукций из него.
+
+\func red-length {V : \Set} (t : Term V) (acc : Acc Red1 t) : Nat
+  => {?}
