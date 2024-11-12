@@ -20,13 +20,21 @@
 -- 4. Определите факториал через хвостовую рекурсию.
 --    Докажите, что он равен обычному определению факториала.
 
--- 5. Определите функцию, которая проверяет правильность скобочной последовательности.
+-- 5. Функция isBalanced проверяет правильность скобочной последовательности.
 --    Докажите ее корректность.
 
 \data Paren | Left | Right
 
 \func isBalanced (xs : List Paren) : Bool
-  => {?}
+  => aux xs 0
+  \where {
+    \func aux (xs : List Paren) (p : Nat) : Bool \elim xs, p
+      | nil, 0 => true
+      | nil, suc _ => false
+      | Left :: xs, p => aux xs (suc p)
+      | Right :: xs, 0 => false
+      | Right :: xs, suc p => aux xs p
+  }
 
 \data Balanced (xs : List Paren) \with
   | nil => nil-balanced
