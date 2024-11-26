@@ -26,3 +26,29 @@
 
 \func red-length {V : \Set} (t : Term V) (acc : Acc Red1 t) : Nat
   => {?}
+
+-- 5. Докажите, что нейтральные термы замкнуты относительно редукций.
+
+\func neutralRed {V : \Set} {t s : Term V} (r : Red1 t s) (n : Neutral t) : Neutral s
+  => {?}
+
+-- 6. Докажите следующую обобщенную лемму о подстановке и выведите из нее обычную версию: если Г, x : A |- b : B и Г |- a : A, то Г |- b[a/x] : B.
+
+\func substLem {U V : \Set} (ctx : U -> Type) (b : Term U) (B : Type) (h : hasType ctx b B)
+               (ctx' : V -> Type) (a : U -> Term V) (h' : \Pi (u : U) -> hasType ctx' (a u) (ctx u))
+  : hasType ctx' (b >>= a) B
+  => {?}
+
+\func substLem1 => {?}
+
+-- 7. Докажите, что если Г |- a : A и Red a a', то Г |- a' : A
+
+\func redLem {V : \Set} {ctx : V -> Type} {a a' : Term V} (r : Red a a') {A : Type} (h : hasType ctx a A)
+  : hasType ctx a' A
+  => {?}
+
+-- Optional
+-- 8. Для доказательства typeableInterp понадобится вспомогательное утверждение. Докажите его.
+
+\func redInterp {V : \Set} {a t s : Term V} {T : Type} (r : HeadRed a t s) (acc : Acc Red1 a) (q : Interp T s) : Interp T t
+  => {?}
