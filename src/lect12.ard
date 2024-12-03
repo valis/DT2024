@@ -1,0 +1,225 @@
+\import Arith.Int
+\import Data.Bool
+\import Equiv
+\import Function
+\import Function.Meta
+\import Logic
+\import Logic.Meta
+\import Meta
+\import Paths
+\import Paths.Meta
+\import lect11(not-not)
+
+-- Тип, являющиеся множествами, ведут себя как множества в теории множеств.
+-- Это означает, что многие теоремы из нее можно доказать и в теории типов.
+-- Например, мы можем доказать теорему Кантора, которая говорит, что мощность множества X строго меньше, чем мощность множества его подмножеств, то есть множества X -> \Prop.
+
+\truncated \data Card : \Set
+  | card \Set
+
+\func fin (n : Nat) : Card
+  => card (Fin n)
+
+\func countableCard : Card
+  => card Nat
+
+\func leq (c1 c2 : Card) : \Prop
+  | card A, card B => ∃ (f : A -> B) (isInj f)
+
+-- Тот факт, что мощность меньше, означает, что существует инъекция из X в X -> \Prop.
+-- \lam x => { x }
+-- В качестве такой инъекции мы можем просто взять предикат равенства.
+-- (=) : X -> (X -> \Prop)
+
+\func =-isInj {X : \Set} : isInj {X} {X -> \Prop} (=)
+  => \lam x y p => repl (inv (path (\lam i => p i y))) idp
+
+-- Тот факт, что мощность строго меньше, означает, что не существует сюръекции вида
+-- f : X -> (X -> \Prop)
+-- Это легко доказать так же как и в классическом случае.
+
+-- Некоторые факты невозможно доказать в теории типов, так как мы не предполагаем закон исключенного третьего или аксиому выбора.
+-- Например, теорема Кантора-Бернштейна, которая говорит, что если одно множество вкладывается в другое, и наоборот, то между ними есть биекция, не доказуема без исключенного третьего.
+-- При необходимости мы можем добавить эти классические принципы.
+-- Тогда теория станет еще больше похожа на классическую теорию множеств.
+
+-- 1. Сюръективные функции.
+
+\func isInj {A B : \Set} (f : A -> B) => \Pi (x y : A) -> f x = f y -> x = y
+
+-- Сюръективные функции определяютя очевидным образом.
+-- Обратите внимание, что мы используем обрезание, так как хотим, чтобы этот тип был утверждением.
+\func isSur {A B : \Type} (f : A -> B) : \Prop
+  => \Pi (b : B) -> ∃ (a : A) (f a = b)
+  -- \Pi (b : B) -> \Sigma (a : A) (f a = b)
+  -- Trunc (\Pi (b : B) -> \Sigma (a : A) (f a = b))
+
+-- 2. Биекция = инъекция + сюръекция.
+
+\func isBij {A B : \Set} (f : A -> B) : \Set
+  => \Sigma (g : B -> A) (\Pi (a : A) -> g (f a) = a) (\Pi (b : B) -> f (g b) = b)
+
+\func isBij->isInj {A B : \Set} (f : A -> B) (fb : isBij f) : isInj f
+  => \lam x y p => inv (fb.2 x) *> pmap fb.1 p *> fb.2 y
+
+\func isBij->isSur {A B : \Set} (f : A -> B) (fb : isBij f) : isSur f
+  => \lam b => inP (fb.1 b, fb.3 b)
+
+\func isInj+isSur->isBij {A B : \Set} (f : A -> B) (ip : isInj f) (sp : isSur f) : isBij f
+  => \let t (b : B) : \Sigma (a : A) (f a = b) => TruncP.remove (\lam s t => ext $ ip _ _ $ s.2 *> inv t.2) (sp b)
+     \in (\lam b => (t b).1, \lam a => ip _ _ (t _).2, \lam b => (t b).2)
+
+-- 3. Определение Int.
+
+\data Int'
+  | pos' Nat
+  | neg' Nat \with {
+    | 0 => pos' 0
+  }
+
+-- Конструкторы в обычных типах данных не пересекаются.
+-- Другими словами, мы всегда можем доказать, что con1 не равен con2.
+
+-- Иногда бывает полезно определять типы данных, в которых это будет не верно.
+-- Например, удобно определять целые числа как либо положительное натуральное число, либо отрицательное.
+-- При этом, эти два конструктора будут пересекаться, так как положительный ноль совпадает с отрицательным.
+-- Чтобы определить такой тип данных, нужно в одном или нескольких конструкторов добавить условия, которые говорят как он будет вычисляться.
+-- Синтаксис такой же как и для определения функций при помощи паттерн матчинга.
+-- Единственное отличие заключается в том, что не обязательно все случаи должны быть покрыты.
+-- Например, мы можем определить как neg вычисляется только на zero, но не на suc.
+-- Тогда neg 0 будет вычисляться в pos 0, но neg (suc n) будет уже в нормальной форме как обычный конструктор.
+
+-- Когда мы определяем функцию над таким типом данных при помощи паттерн матчинга, система проверяет, что ее значение на эквивалентных конструкторах совпадают.
+-- Например, следующее определение не пройдет, так как intEx (pos 0) равно 3, а intEx (neg 0) равно 7.
+{-
+\func intEx (z : Int) : Nat
+  | pos n => 3
+  | neg n => 7
+-}
+
+\func negative (x : Int) : Int
+  | pos n => neg n
+  | neg n => pos n
+
+\func abs (x : Int) : Nat
+  | pos n => n
+  | neg n => n
+
+-- Паттерны, которые вычисляются, можно пропускать в паттерн матчинге.
+-- Например, в следующей функции мы не определили ее значение на neg 0, но система принимает это определение.
+\func intEx' (z : Int) : Nat
+  | pos n => 3
+  | neg (suc n) => 7
+
+-- intEx' (neg 0) => intEx' (pos 0) => 3
+
+-- 4. Фактор-множества.
+
+-- Фактор-множества -- это полезная конструкция над множествами.
+-- Если A -- множество с отношением эквивалентности ~ на нем, то мы можем определить новое множество A/~ вместе с функцией in~ : A -> A/~, которая делает равными эквивалентные элементы A.
+-- A : \Set
+-- ~ : A -> A -> \Prop
+-- A/~ : \Set
+-- in~ : A -> A/~ -- [a]_~
+-- (a ~ a') -> (in~ a = in~ a')
+
+-- Чтобы определить функцию над A/~, достаточно задать ее на произвольном элементе a : A так, чтобы эквивалентным элементам соответствовали равные результаты.
+-- Мы можем использовать примерно следующий синтаксим, но в нем нет доказательства этого условия.
+-- Точный синтаксис приведен ниже.
+-- \func f (x : A/~) : B
+--   | in~ a => b(a)
+
+-- Пример использвания фактор-множеств -- это рациональные числа, которые определяются как пары целых чисел с точностью до эквивалентности.
+-- Rat = (\Sigma Int (x : Int) (Not (x = 0))) / ~
+-- Где (n,m,p) ~ (n',m',p') тогда и только тогда, когда n * m' = n' * m.
+
+-- Фактор-множества можно определить при помощи типов данных с условиями.
+-- Мы просто добавляем конструктор с параметром типа I и двумя условиями на него.
+\truncated \data Quotient (A : \Type) (R : A -> A -> \Type) : \Set
+  | in~ A
+  | equals~ {a a' : A} (R a a') : in~ a = in~ a'
+
+\truncated \data Quotient' (A : \Type) (R : A -> A -> \Type) : \Set
+  | in~' A
+  | equals~' {a a' : A} (R a a') (i : I) : Quotient' A R \elim i {
+    | left => in~' a
+    | right => in~' a'
+  }
+
+-- equals~ r : I -> Quotient A R
+-- path (equals~ r) : equals~ r left = equals~ r right
+
+-- Тогда path (eq a a' r) будет задавать равенство между двумя элементами, указанными в этих условиях.
+-- В данном случае мы получаем необходимое равенство между эквивалентными элементами.
+\func quotientEq {A : \Type} {R : A -> A -> \Type} {a a' : A} (r : R a a') : in~ a = {Quotient A R} in~ a'
+  => path (equals~ r)
+
+-- Чтобы определить функцию над Quotient A R, необходимо задать ее на элементе вида inR a и на конструкторе eq,
+-- что соответствует доказательству того, что эквивалентным элементам соответствуют равные значения.
+\func quotientEx {A : \Type} {R : A -> A -> \Type} {B : \Set}
+                 (f : A -> B) (p : \Pi {a a' : A} -> R a a' -> f a = f a')
+                 (x : Quotient A R) : B \elim x
+  | in~ a => f a
+  | equals~ r => p r
+
+\func inR-sur {A : \Type} {R : A -> A -> \Type} : isSur (in~ {A} {R})
+  => \lam b => \case \elim b \with {
+    | in~ a => inP (a, idp)
+  }
+
+\truncated \data RSTClosure {A : \Type} (R : A -> A -> \Type) (x y : A) : \Prop
+  | refl (x = y)
+  | sym (RSTClosure R y x)
+  | trans {z : A} (RSTClosure R x z) (RSTClosure R z y)
+  | inc (R x y)
+
+\func code {A : \Type} {R : A -> A -> \Type} (a : A) (x : Quotient A R) : \Prop \elim x
+  | in~ a' => RSTClosure R a a'
+  | equals~ {a1} {a2} r => ext (\lam r' => trans r' (inc r), \lam r' => trans r' $ sym (inc r))
+
+\func eff' {A : \Type} (R : A -> A -> \Type) {a : A} {x : Quotient A R}
+           (p : in~ a = {Quotient A R} x) : code a x \elim p
+  | idp => refl idp
+
+\func eff {A : \Type} (R : A -> A -> \Type) {a a' : A}
+          (p : in~ a = {Quotient A R} in~ a') : RSTClosure R a a'
+  => eff' R p
+
+-- 5. S1
+
+-- ...
+-- inv loop *> inv loop *> inv loop
+-- inv loop *> inv loop
+-- inv loop
+-- idp
+-- loop
+-- loop *> loop
+-- loop *> loop *> loop
+-- loop *> loop *> loop *> loop
+-- ...
+
+\data S1
+  | base
+  | loop : base = base
+
+\func ploop : base = base
+  => path loop
+
+-- Bool code
+\func S1-code (x : S1) : \Set
+  | base => Bool
+  | loop i => iso not not not-not not-not i
+
+\func repl {A B : \Type} (p : A = B) : A -> B
+  => transport (\lam X => X) p
+
+\func ploop/=idp (p : ploop = idp) : Empty
+  => \let | t : path (iso not not not-not not-not) = idp
+              => pmap (pmap S1-code) p
+          | s : not = id => pmap repl t
+     \in \case path (\lam i => s i true)
+
+\func wind (n : Int) : base = base \elim n
+  | pos 0 => idp
+  | pos (suc n) => wind (pos n) *> loop
+  | neg (suc n) => wind (neg n) *> inv loop
