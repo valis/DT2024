@@ -92,7 +92,8 @@
 
 -- 2'. Образ
 
-\func Image {A B : \Type} (f : A -> B) => \Sigma (b : B) (\Sigma (a : A) (f a = b))
+\func Image {A B : \Type} (f : A -> B)
+  => \Sigma (b : B) (\Sigma (a : A) (f a = b))
 
 -- 3. Утверждения
 
@@ -109,7 +110,7 @@
 
 -- Пустой тип является утверждением.
 \func Empty-isProp : isProp Empty
-  => \lam x => absurd x
+  => \lam x y => absurd x
 
 -- Одноэлементный тип является утверждением.
 \func Unit-isProp : isProp (\Sigma)
@@ -117,13 +118,13 @@
 
 -- Если A и B являются утверждениями, то их произведение (конъюнкция) тоже является утверждением.
 \func Sigma-isProp {A B : \Type} (pA : isProp A) (pB : isProp B) : isProp (\Sigma A B)
-  => \lam s t => ext (pA s.1 t.1, pB s.2 t.2)
+  => \lam s t => ext (pA _ _, pB _ _)
 
 \func Sigma'-isProp {A : \Type} (B : A -> \Type)
                     (pA : isProp A)
                     (pB : \Pi (x : A) -> isProp (B x))
   : isProp (\Sigma (x : A) (B x))
-  => \lam s t => ext (pA s.1 t.1, pB _ _ _)
+  => \lam s t => ext (pA _ _, pB _ _ _)
 
 -- Это не верно для сумм типов, то есть у нас нет (пока) дизъюнкций.
 -- \func Or-isProp {A B : \Type} (pA : isProp A) (pB : isProp B) : isProp (Or A B)
@@ -131,12 +132,12 @@
 
 -- У нас есть импликации.
 \func Impl-isProp {A B : \Type} {- (pA : isProp A) -} (pB : isProp B) : isProp (A -> B)
-  => \lam f g => ext \lam a => pB (f a) (g a)
+  => \lam f g => ext \lam a => pB _ _
 
 -- И квантор всеобщности.
 \func forall-isProp {A : \Type} (B : A -> \Type) (pB : \Pi (x : A) -> isProp (B x))
   : isProp (\Pi (x : A) -> B x)
-  => \lam f g => ext \lam a => pB a (f a) (g a)
+  => \lam f g => ext \lam a => pB a _ _
 
 {- Но квантора существования у нас (пока) нет.
 \func exists-isProp {A : \Type} (B : A -> \Type) (pB : \Pi (x : A) -> isProp (B x))
@@ -175,56 +176,30 @@
 -- 5. Примеры множеств: Unit, \Sigma.
 
 \func Empty-isSet : isSet Empty
-  => \lam a => absurd a
+  => \lam a a' x y => absurd a
+
+\func Unit_-isSet : isSet (\Sigma)
+  => \lam a a' x y => \case \elim a', \elim x, \elim y \with {
+    | a', idp, y => {?}
+  }
 
 \func retract-isProp {A B : \Type} (pB : isProp B)
                      (f : A -> B) (g : B -> A) (h : \Pi (x : A) -> g (f x) = x)
   : isProp A
   => \lam x y => inv (h x) *> pmap g (pB _ _) *> h y
 
-\func Unit-isSet : isSet (\Sigma)
-  => \lam a a' => retract-isProp Unit-isProp (\lam p => ()) (\lam _ => idp) {?}
-
 \data Unit | unit
 
-\func Unit'-isProp (a a' : Unit) : a = a' \elim a, a'
+\func Unit'-isProp (x y : Unit) : x = y
   | unit, unit => idp
 
-\func Unit'-refl (a : Unit) : Unit'-isProp a a = idp \elim a
+\func Unit'-refl (x : Unit) : Unit'-isProp x x = idp
   | unit => idp
 
-\func Unit'_= {a a' : Unit} (p : a = a') : Unit'-isProp a a' = p \elim p
-  | idp => Unit'-refl a
-
 \func Unit'-isSet : isSet Unit
-  => \lam a a' => retract-isProp Unit-isProp (\lam _ => ()) (\lam _ => Unit'-isProp a a') Unit'_=
-
--- 6. setLem
-
-\func setLem {A : \Type} (B : A -> A -> \Type) (pB : \Pi (x y : A) -> isProp (B x y))
-             -- (f' : \Pi {a a' : A} -> a = a' -> B a a')
-             (f : \Pi (a : A) -> B a a)
-             (g : \Pi {a a' : A} -> B a a' -> a = a')
-             : isSet A
-  => \lam a a' =>
-      \let | f' {a a' : A} (p : a = a') : B a a' => transport (B a) p (f a)
-           | h {a a' : A} (p : a = a') => g (f' p)
-           | idemp {a a' : A} (p : a = a') : h (h p) = h p => pmap g (pB _ _ _ _)
-           | lem {a a' : A} (p : a = a') : h p = h idp *> p => \case \elim a', \elim p \with {
-             | a'1, idp => idp
-           }
-           | h=id {a a' : A} (p : a = a') : h p = p => \case \elim a', \elim p \with {
-             | a'1, idp => inv $ cancelLeft (h idp) idp _ $ inv (idemp idp) *> lem {a} (h idp)
-           }
-      \in retract-isProp (pB a a') f' g h=id
-
-\func Sigma-isSet {A : \Type} (B : A -> \Type)
-                  (pA : isSet A) (pB : \Pi (x : A) -> isSet (B x))
-  : isSet (\Sigma (x : A) (B x))
-  => setLem {\Sigma (x : A) (B x)} (\lam s t => \Sigma (p : s.1 = t.1) (transport B p s.2 = t.2))
-      (\lam s t => Sigma'-isProp _ (pA _ _) (\lam p => pB t.1 (transport B p s.2) t.2))
-      (\lam s => (idp,idp))
-      (\lam q => ext q)
+  => \lam x y => retract-isProp Unit-isProp (\lam _ => ()) (\lam _ => Unit'-isProp x y) (\lam p => \case \elim y, \elim p \with {
+    | y, idp => Unit'-refl x
+  })
 
 -- 6. Свойства операций над =.
 
@@ -263,3 +238,29 @@
 \func cancelLeft {A : \Type} {x y z : A} (p : x = y) (q r : y = z)
                  (s : p *> q = p *> r) : q = r \elim p, q
   | idp, idp => s *> idp-left r
+
+-- 7. setLem
+
+\func setLem {A : \Type} (B : A -> A -> \Type) (pB : \Pi (x y : A) -> isProp (B x y))
+  -- (f' : \Pi {a a' : A} -> a = a' -> B a a')
+  (f : \Pi (a : A) -> B a a)
+  (g : \Pi {a a' : A} -> B a a' -> a = a')
+  : isSet A
+  => \let | f' {a a' : A} (p : a = a') : B a a' => transport (B a) p (f a)
+          | h {a a' : A} (p : a = a') : a = a' => g (f' p)
+          | h-idemp {a a' : A} (p : a = a') : h (h p) = h p => unfold h $ pmap g (pB a a' _ _)
+          | lem {a a' : A} (p : a = a') : h p = h idp *> p => \case \elim a', \elim p \with {
+            | a', idp => idp
+          }
+          | lem2 {a : A} : idp = h idp => cancelLeft (h idp) idp (h idp) $ inv (h-idemp idp) *> lem {a} (h idp)
+     \in \lam a a' => retract-isProp (pB a a') f' g (\lam p => \case \elim a', \elim p \with {
+      | a', idp => inv lem2
+    })
+
+\func Sigma-isSet {A : \Type} (B : A -> \Type)
+                  (pA : isSet A) (pB : \Pi (x : A) -> isSet (B x))
+  : isSet (\Sigma (x : A) (B x))
+  => setLem (\lam (s t : \Sigma (x : A) (B x)) => \Sigma (q : s.1 = t.1) (transport B q s.2 = t.2))
+      (\lam s t u v => ext (pA _ _ _ _, pB _ _ _ _ _))
+      (\lam s => (idp, idp))
+      (\lam {s} {t} q => ext q)
