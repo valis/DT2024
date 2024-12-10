@@ -18,9 +18,6 @@
 \func Prop1 => \Prop
 \func Prop2 => \Sigma (A : \Type) (isProp A)
 
-\func fooa (A : Prop2) (x : A.1) : A.1
-  => x
-
 \lemma pathInProp {A : \Prop} : isProp A
   => prop-isProp
 
@@ -51,7 +48,7 @@
   => unfold Prop1-to-Prop2 $ unfold Prop2-to-Prop1 {?}
 
 \func prop212 {P : Prop2} : Prop1-to-Prop2 (Prop2-to-Prop1 P) = P
-  => unfold Prop1-to-Prop2 $ unfold Prop2-to-Prop1 $ ext {?}
+  => unfold Prop1-to-Prop2 $ unfold Prop2-to-Prop1 $ ext ({?}, {?})
 
 -- 2. Вселенная \Set и ее эквивалентность с подвселенной \Type.
 
@@ -63,7 +60,7 @@
 \func Set2 => \Sigma (A : \Type) (isSet A)
 
 -- Для равенств есть следующее правило.
--- Если A : \(n+1)-Type и a,a' : A, то a = a' : \n-Type
+-- Если A : \Set и a,a' : A, то a = a' : \Prop
 
 -- Таким оразом, мы можем доказать, что любой элемент \Set удовлетворяет предикату isSet при помощи Path.inProp следующим образом.
 -- Многие индуктивные определения попадают во вселенную \Set.
@@ -127,11 +124,7 @@
 
 -- 1. isProp (Trunc A)
 -- 2. i : A -> Trunc A
--- 3. isProp B, f : A -> B => \exists g : Trunc A -> B
-
--- 1'. isProp (Trunc' A)
--- 2'. i : A -> Trunc' A
--- 3'. isProp B, f : A -> B => \exists g : Trunc' A -> B
+-- 3. isProp B, f : A -> B => \exists g : Trunc A -> B, g (i a) = f a
 
 -- Trunc A ~ Trunc' A
 
@@ -231,7 +224,7 @@
 \func exists (A : \Type) (B : A -> \Prop) => Trunc (\Sigma (a : A) (B a))
 
 -- через Exists:
-\func exists' (A : \Type) (B : A -> \Prop) => ∃ (a : A) (B a)
+\func exists' (A : \Type) (B : A -> \Prop) => ∃ (n : Nat) (n = 0)
 
 -- P : Nat -> \Prop
 -- P -- decidable
@@ -239,7 +232,7 @@
 
 -- isProp (\Sigma (n : Nat) (P n) (\Pi (m : Nat) -> P m -> n <= m))
 
--- Trunc (\Sigma (n : Nat) (P n)) -> \Sigma (n : Nat) (P n) (\Pi (m : Nat) -> P m -> n <= m)
+-- Trunc (\Sigma (n : Nat) (P n)) -> \Sigma (n : Nat) (P n) (\Pi (m : Nat) -> P m -> n <= m) -> \Sigma (n : Nat) (P n)
 
 -- 5. Предикат "тип не пуст".
 
@@ -258,13 +251,10 @@
 -- image' {Nat} {\Sigma} (\lam _ => ()) == Nat
 
 \func image {A B : \Type} (f : A -> B)
-  => \Sigma (b : B) (∃ (a : A) (f a = b)) -- через ∃
+  => \Sigma (b : B) (∃ (a : A) (f a = b))
 -- image {Nat} {\Sigma} (\lam _ => ()) == \Sigma
 
 -- 7. Равенство типов, iso.
-
--- f = g -> (\Pi (x : A) -> f x = g x)
--- (\Pi (x : A) -> f x = g x) -> f = g
 
 -- Мы раньше задавались вопросом когда равны два элемента некоторого типа.
 -- Например, мы видели, что две пары равны тогда и только тогда, когда они равны покомпонентно.
@@ -288,7 +278,23 @@
 \func isEquiv {A B : \Type} (f : A -> B) : \Prop
   => ∃ (g : B -> A) (\Pi (a : A) -> g (f a) = a) (\Pi (b : B) -> f (g b) = b)
 
+\func isEquiv' {A B : \Type} (f : A -> B)
+  => \Sigma (g : B -> A) (\Pi (a : A) -> g (f a) = a)
+            (h : B -> A) (\Pi (b : B) -> f (h b) = b)
+  -- isEquiv' -- утверждение
+
+-- g b = g (f (h b)) = h b
+
 \func Equiv' (A B : \Type) => \Sigma (f : A -> B) (isEquiv f)
+
+\func Equiv1 (A B : \Type) : Equiv {A} {B} \cowith
+  | f => {?}
+  | ret => {?}
+  | ret_f => {?}
+  | sec => {?}
+  | f_sec => {?}
+
+\func QEquiv' (A B : \Type) => \Sigma (f : A -> B) (g : B -> A) (\Pi (a : A) -> g (f a) = a) (\Pi (b : B) -> f (g b) = b)
 
 -- Мы можем показать, что если A = B, то между ними есть эквивалентность.
 \func equality=>equivalence {A B : \Type} (p : A = B) : Equiv {A} {B} \cowith
@@ -302,13 +308,17 @@
 \func equivalence=>equality {A B : \Type} (e : Equiv {A} {B}) : A = B
   => path (iso e.f e.ret e.ret_f e.f_ret)
 
+-- f = g <-> (\Pi (x : A) -> f x = g x)
+
+-- Equiv {s = t} {\Sigma (x : s.1 = t.1) (transport B x s.2 = t.2)}
+
 -- \func iso' {A B : \Type} (f : A -> B) (g : B -> A) (p : \Pi (x : A) -> g (f x) = x) (q : \Pi (y : B) -> f (g y) = y) : A = B
 
 -- Если у нас есть эквивалентность f : A -> B, то мы можем написать следующую функцию:
 -- \lam a => coe (iso f g p q) a right : A -> B
 -- Равна ли эта функция исходной f?
 -- Ответ: да, так как для coe есть следующее правило:
--- coe (iso f g p q) a right == f a
+-- coe (iso f g p q) a right == a
 
 \func transport {A : \Type} (B : A -> \Type) {a a' : A} (p : a = a') (b : B a) : B a'
   => coe (\lam i => B (p @ i)) b right
@@ -377,9 +387,9 @@
   | false => idp
 
 \func Set-isNotSet (p : isSet \Set) : Empty
-  => \case pmap (\lam (e : Equiv {Bool} {Bool}) => e.f true) $ transport isProp (Equiv-to-= univalence) (p Bool Bool) idEquiv (\new QEquiv {
+  => \let t => transport isProp (Equiv-to-= univalence) (p Bool Bool) idEquiv (\new QEquiv {
     | f => not
     | ret => not
     | ret_f => not-not
     | f_sec => not-not
-  })
+  }) \in \case pmap (\lam (e : Equiv {Bool} {Bool}) => e true) t
