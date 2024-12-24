@@ -1,0 +1,41 @@
+\import Data.Bool
+\import lect12(isInj)
+\import lect13
+
+-- 1. Докажите, что add x (add x s) = add x s и add x (add y s) = add y (add x s)
+
+\func add-idemp {S : SetSpec} (x : S.A) (s : S) : add x (add x s) = add x s
+  => {?}
+
+\func add-swap {S : SetSpec} (x y : S.A) (s : S) : add x (add y s) = add y (add x s)
+  => {?}
+
+-- 2. Докажите, что множество подмножеств является инстансом SetSpec
+
+\func subsets {A : \Set} : SetSpec {A} (A -> \Prop)
+  => {?}
+
+-- 3. Докажите, что множество подмножеств является наибольшим инстансом, то есть любой другой вкладывается в него.
+
+\func subsets-largest (S : SetSpec) : \Sigma (f : S -> S.A -> \Prop) (isInj f)
+  => {?}
+
+-- 4. Определите функцию isEmpty для произвольного конечного множества и для ListSet.
+
+\func isEmptySet {S : FinSetSpec} (x : S) : Bool => {?}
+
+\func isEmptyListSet {A : \Set} (x : ListSet A) : Bool => {?}
+
+-- 5. Определите функцию union {A : \Set} : S -> S -> S для произвольного S (удовлетворяющего FinSetSpec) и для ListSet.
+
+-- 6. Определите функцию intersection {A : DecSet} : S -> S -> S для произвольного S (удовлетворяющего FinSetSpec) и для ListSet.
+
+-- Optional
+-- 7. Мы не можем определить функция size в общем случае, но мы можем определить предикат S -> Nat -> \Prop, соответствующий \lam xs n => size xs <= n.
+--    Задайте этот предикат и докажите, что он эквивалентен обычному определению, если A -- разрешимо и S -- конечно.
+
+-- Optional
+-- 8. Определите предикат isFin : \Type -> \Prop так, чтобы множество \Sigma (P : A -> \Prop) (isFin (\Sigma (a : A) (P a))) удовлетворяло FinSetSpec, определите этот инстанс.
+
+-- Optional
+-- 9. Определите NubListSet и инстанс FinSetSpec для него.
